@@ -25,6 +25,8 @@ const LEDGE_GRAB_VERT_TOLERANCE = 26;
 const LEDGE_GRAB_HORZ_TOLERANCE = 18;
 const LEDGE_CLIMB_DURATION = 0.34;
 const LEDGE_RELEASE_GAP = 2;
+const FLASH_MESSAGE_DURATION = 1.8;
+const HIGH_SCORE_KEY = "rescueJamesHighScore";
 const TITLE_FONT = '"Fraunces", Georgia, serif';
 const UI_FONT = '"Nunito", "Trebuchet MS", sans-serif';
 
@@ -44,6 +46,9 @@ const state = {
   selected: "mark",
   levelIndex: 0,
   monsterMultiplier: 1,
+  score: 0,
+  highScore: loadHighScore(),
+  newHighScore: false,
   messageTimer: 0,
   nextLevelTimer: 0,
   lastTime: 0,
@@ -392,6 +397,8 @@ function resetGame(character = state.selected) {
   state.selected = character;
   state.levelIndex = 0;
   state.monsterMultiplier = 1;
+  state.score = 0;
+  state.newHighScore = false;
   startLevel(0, character, 3, false);
 }
 
@@ -826,7 +833,7 @@ function updateAttack(dt) {
 
   for (const enemy of enemies) {
     if (!enemy.defeated && intersects(attackBox, enemy)) {
-      hitEnemy(enemy);
+      hitEnemy(enemy, "attack");
       player.attackHasHit = true;
     }
   }
@@ -884,9 +891,11 @@ function updateEnemies(dt) {
       updateChomper(enemy, dt);
     }
 
+    if (enemy.hurtTimer > 0) continue;
+
     if (intersects(player, enemy)) {
       if (isStomp(player, enemy)) {
-        hitEnemy(enemy);
+        hitEnemy(enemy, "stomp");
       } else {
         hurtPlayer();
       }
@@ -1035,6 +1044,7 @@ function damageBoss(shouldGrow = false) {
   const growthHeight = shouldGrow ? growBoss() : 0;
   boss.hp -= 1;
   boss.hurtTimer = 0.45;
+  addScore(100);
   flashMessage(boss.hp > 0 ? `${boss.hp} hit${boss.hp === 1 ? "" : "s"} left!` : "The boss is down. Rescue James!");
   if (boss.hp <= 0) {
     spawnBossDefeatBurst();
@@ -1093,11 +1103,13 @@ function updateCollectibles(dt) {
 
     if (collectible.type === "heart") {
       player.health = Math.min(MAX_HEALTH, player.health + 1);
+      addScore(3000);
       flashMessage("Health increased!");
       spawnBurst(collectible.x + collectible.w / 2, collectible.y + collectible.h / 2, "#ef4444");
     } else if (collectible.type === "blackSun") {
       player.sunCount += 1;
       player.attackUnlocked = true;
+      addScore(1000);
       flashMessage(`Black Sun x${player.sunCount}. Press CTRL to attack!`);
       spawnBurst(collectible.x + collectible.w / 2, collectible.y + collectible.h / 2, "#111827");
     }
@@ -1125,25 +1137,26 @@ function isStomp(attacker, target) {
   return attacker.vy > 120 && attackerBottom - targetTop < 34;
 }
 
-function hitEnemy(enemy) {
+function hitEnemy(enemy, source = "stomp") {
+  addScore(100);
   if (enemy.type === "monsterboy") {
     enemy.hp -= 1;
     if (enemy.hp > 0) {
       enemy.hurtTimer = 0.45;
-      player.vy = -360;
+      if (source === "stomp") player.vy = -360;
       spawnBurst(enemy.x + enemy.w / 2, enemy.y + 10, "#22c55e");
       flashMessage("Monsterboy needs one more hit!");
       return;
     }
   }
 
-  defeatEnemy(enemy);
+  defeatEnemy(enemy, source);
 }
 
-function defeatEnemy(enemy) {
+function defeatEnemy(enemy, source = "stomp") {
   enemy.defeated = true;
   enemy.hurtTimer = 0.8;
-  player.vy = -440;
+  if (source === "stomp") player.vy = -440;
   const burstColor = enemy.type === "ghostBoy" ? "#c084fc" : enemy.type === "monsterboy" ? "#22c55e" : "#e5e7eb";
   const enemyName = enemy.type === "ghostBoy" ? "Ghost Boy" : enemy.type === "monsterboy" ? "Monsterboy" : "Chomper";
   spawnBurst(enemy.x + enemy.w / 2, enemy.y + 10, burstColor);
@@ -1214,7 +1227,31 @@ function getAttackBox() {
 
 function flashMessage(text) {
   state.message = text;
-  state.messageTimer = 2.4;
+  state.messageTimer = FLASH_MESSAGE_DURATION;
+}
+
+function addScore(points) {
+  state.score += points;
+  if (state.score <= state.highScore) return;
+  state.highScore = state.score;
+  state.newHighScore = true;
+  saveHighScore(state.highScore);
+}
+
+function loadHighScore() {
+  try {
+    return Number(localStorage.getItem(HIGH_SCORE_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function saveHighScore(score) {
+  try {
+    localStorage.setItem(HIGH_SCORE_KEY, String(score));
+  } catch {
+    // High score persistence is optional when storage is unavailable.
+  }
 }
 
 function getLevelIntroMessage() {
@@ -1263,7 +1300,7 @@ function draw() {
   } else if (state.mode === "won") {
     drawPanel("James Rescued!", "You cleared all three levels and saved James.", "");
   } else if (state.mode === "lost") {
-    drawPanel("Game Over", "Enemies are dangerous from the side.", "Refresh the page to play again.");
+    drawGameOverPanel();
   }
 }
 
@@ -1629,6 +1666,12 @@ function drawHud() {
   ctx.fillStyle = "#f8fafc";
   ctx.font = canvasFont(800, 22);
   ctx.fillText(`Hero: ${capitalize(state.selected)}  L${state.levelIndex + 1}`, 34, 44);
+  ctx.font = canvasFont(800, 16);
+  ctx.fillText(`Score: ${state.score}`, 214, 44);
+  ctx.fillStyle = "rgba(248, 250, 252, 0.58)";
+  ctx.font = canvasFont(700, 12);
+  ctx.fillText(`High: ${state.highScore}`, 214, 60);
+  ctx.fillStyle = "#f8fafc";
   ctx.font = canvasFont(700, 18);
   ctx.fillText(`Health: ${"I ".repeat(Math.max(player?.health || 0, 0)).trim()}`, 34, 72);
   if (player?.attackUnlocked) {
@@ -1645,12 +1688,14 @@ function drawHud() {
   ctx.fillText(boss?.defeated ? "Reach James!" : `${level.name}: stomp the boss.`, WIDTH - 310, 70);
 
   if (state.messageTimer > 0) {
-    ctx.fillStyle = "rgba(15, 23, 42, 0.84)";
-    drawRoundRect(WIDTH / 2 - 230, 104, 460, 44, 12);
-    ctx.fillStyle = "#fde047";
-    ctx.font = canvasFont(800, 18);
+    const fadeProgress = clamp(state.messageTimer / FLASH_MESSAGE_DURATION, 0, 1);
+    const messageAlpha = Math.sin(fadeProgress * Math.PI / 2);
+    ctx.fillStyle = `rgba(15, 23, 42, ${0.58 * messageAlpha})`;
+    drawRoundRect(WIDTH / 2 - 180, 108, 360, 34, 10);
+    ctx.fillStyle = `rgba(253, 224, 71, ${messageAlpha})`;
+    ctx.font = canvasFont(800, 15);
     ctx.textAlign = "center";
-    ctx.fillText(state.message, WIDTH / 2, 132);
+    ctx.fillText(state.message, WIDTH / 2, 130);
     ctx.textAlign = "left";
   }
 }
@@ -1684,7 +1729,7 @@ function drawCharacterCard(character, x, y) {
   ctx.font = canvasFont(800, 28);
   ctx.textAlign = "center";
   ctx.fillText(capitalize(character), x + 90, y + 178);
-  ctx.font = canvasFont(700, 16);
+  ctx.font = canvasFont(700, 14);
   ctx.fillText(character === "mark" ? "Grabs ledges to climb up" : "Light and nimble", x + 90, y + 206);
 }
 
@@ -1701,6 +1746,33 @@ function drawPanel(title, line1, line2) {
   ctx.fillText(line1, WIDTH / 2, HEIGHT / 2 - 12);
   if (line2) ctx.fillText(line2, WIDTH / 2, HEIGHT / 2 + 28);
   ctx.textAlign = "left";
+}
+
+function drawGameOverPanel() {
+  drawPanel("Game Over", "Enemies are dangerous from the side.", "");
+  if (state.newHighScore) {
+    ctx.fillStyle = "#fde047";
+    ctx.font = canvasFont(800, 22);
+    ctx.textAlign = "center";
+    ctx.fillText("New High Score!", WIDTH / 2, HEIGHT / 2 + 22);
+  }
+  const button = getPlayAgainButtonBounds();
+  ctx.fillStyle = "rgba(250, 204, 21, 0.92)";
+  drawRoundRect(button.x, button.y, button.w, button.h, 16);
+  ctx.fillStyle = "#111827";
+  ctx.font = canvasFont(800, 20);
+  ctx.textAlign = "center";
+  ctx.fillText("Play Again", button.x + button.w / 2, button.y + 31);
+  ctx.textAlign = "left";
+}
+
+function getPlayAgainButtonBounds() {
+  return {
+    x: WIDTH / 2 - 82,
+    y: HEIGHT / 2 + 38,
+    w: 164,
+    h: 48,
+  };
 }
 
 function drawRoundRect(x, y, w, h, radius) {
@@ -1773,6 +1845,8 @@ window.addEventListener("keydown", (event) => {
       event.preventDefault();
       return;
     }
+    if (event.code === "ArrowLeft") state.selected = "mark";
+    if (event.code === "ArrowRight") state.selected = "maria";
     if (event.code === "KeyM") selectCharacter("mark");
     if (event.code === "KeyA") selectCharacter("maria");
     if (event.code === "Enter") selectCharacter(state.selected);
@@ -1784,12 +1858,22 @@ window.addEventListener("keyup", (event) => {
 });
 
 canvas.addEventListener("click", (event) => {
-  if (state.mode !== "select") return;
   const rect = canvas.getBoundingClientRect();
   const scaleX = WIDTH / rect.width;
   const scaleY = HEIGHT / rect.height;
   const x = (event.clientX - rect.left) * scaleX;
   const y = (event.clientY - rect.top) * scaleY;
+
+  if (state.mode === "lost") {
+    const button = getPlayAgainButtonBounds();
+    if (x >= button.x && x <= button.x + button.w && y >= button.y && y <= button.y + button.h) {
+      resetGame(state.selected);
+      state.mode = "select";
+    }
+    return;
+  }
+
+  if (state.mode !== "select") return;
 
   const cards = [
     { character: "mark", x: WIDTH / 2 - 250, y: 190, w: 180, h: 230 },
