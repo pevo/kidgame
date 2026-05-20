@@ -39,6 +39,8 @@ const assets = {
   chomper: "assets/sprites/chomper.png",
   ghostBoy: "assets/sprites/ghostboy.png",
   monsterboy: "assets/sprites/monsterboy.png",
+  ogrebaby: "assets/sprites/ogrebaby.png",
+  ogreboss: "assets/sprites/ogreboss.png",
 };
 
 const state = {
@@ -253,6 +255,87 @@ const sprites = {
   },
 };
 
+sprites.ogrebaby = {
+  sheet: "ogrebaby",
+  idle: [
+    { x: 88, y: 131, w: 155, h: 174 },
+    { x: 277, y: 131, w: 149, h: 173 },
+    { x: 460, y: 132, w: 155, h: 172 },
+    { x: 648, y: 131, w: 162, h: 174 },
+  ],
+  walk: [
+    { x: 89, y: 365, w: 156, h: 164 },
+    { x: 289, y: 362, w: 139, h: 166 },
+    { x: 476, y: 361, w: 140, h: 166 },
+    { x: 670, y: 359, w: 152, h: 169 },
+    { x: 872, y: 358, w: 149, h: 169 },
+    { x: 1060, y: 358, w: 168, h: 170 },
+  ],
+  attack: [
+    { x: 54, y: 599, w: 159, h: 154 },
+    { x: 266, y: 599, w: 148, h: 152 },
+    { x: 419, y: 598, w: 166, h: 154 },
+    { x: 640, y: 593, w: 199, h: 160 },
+    { x: 859, y: 598, w: 174, h: 155 },
+    { x: 1048, y: 600, w: 161, h: 153 },
+    { x: 1225, y: 602, w: 171, h: 151 },
+  ],
+  hurt: [
+    { x: 60, y: 798, w: 160, h: 156 },
+    { x: 269, y: 808, w: 144, h: 148 },
+    { x: 460, y: 809, w: 143, h: 144 },
+    { x: 649, y: 814, w: 150, h: 140 },
+  ],
+  defeated: [
+    { x: 59, y: 1000, w: 164, h: 104 },
+    { x: 251, y: 1014, w: 190, h: 94 },
+    { x: 465, y: 1024, w: 204, h: 85 },
+    { x: 697, y: 1028, w: 212, h: 75 },
+  ],
+};
+sprites.ogrebaby.run = sprites.ogrebaby.walk;
+
+sprites.ogreboss = {
+  sheet: "ogreboss",
+  idle: [
+    { x: 61, y: 114, w: 168, h: 176 },
+    { x: 261, y: 119, w: 163, h: 169 },
+    { x: 454, y: 119, w: 157, h: 172 },
+    { x: 663, y: 118, w: 167, h: 173 },
+  ],
+  walk: [
+    { x: 76, y: 348, w: 152, h: 159 },
+    { x: 250, y: 346, w: 162, h: 161 },
+    { x: 436, y: 348, w: 147, h: 160 },
+    { x: 623, y: 347, w: 158, h: 161 },
+    { x: 818, y: 349, w: 159, h: 159 },
+    { x: 1010, y: 350, w: 159, h: 159 },
+    { x: 1194, y: 350, w: 149, h: 159 },
+  ],
+  attack: [
+    { x: 29, y: 565, w: 172, h: 158 },
+    { x: 226, y: 568, w: 172, h: 155 },
+    { x: 398, y: 568, w: 171, h: 155 },
+    { x: 611, y: 575, w: 202, h: 148 },
+    { x: 828, y: 574, w: 177, h: 151 },
+    { x: 1016, y: 572, w: 183, h: 153 },
+    { x: 1199, y: 572, w: 182, h: 153 },
+  ],
+  hurt: [
+    { x: 50, y: 756, w: 167, h: 162 },
+    { x: 253, y: 765, w: 164, h: 153 },
+    { x: 450, y: 772, w: 132, h: 144 },
+    { x: 630, y: 790, w: 137, h: 129 },
+  ],
+  defeated: [
+    { x: 50, y: 956, w: 167, h: 127 },
+    { x: 235, y: 977, w: 190, h: 105 },
+    { x: 441, y: 993, w: 226, h: 89 },
+    { x: 684, y: 1002, w: 217, h: 81 },
+  ],
+};
+sprites.ogreboss.run = sprites.ogreboss.walk;
+
 const levels = [
   {
     name: "Meadow Rescue",
@@ -357,6 +440,47 @@ const levels = [
     jamesX: 4670,
     flags: { boss: 4080, james: 4630 },
   },
+  {
+    name: "Ogre Citadel",
+    worldWidth: 5600,
+    platforms: [
+      { x: 0, y: GROUND_Y, w: 5600, h: 80 },
+      { x: 380, y: 392, w: 260, h: 28 },
+      { x: 820, y: 322, w: 240, h: 28 },
+      { x: 1260, y: 402, w: 280, h: 28 },
+      { x: 1720, y: 334, w: 240, h: 28 },
+      { x: 2160, y: 394, w: 300, h: 28 },
+      { x: 2660, y: 328, w: 250, h: 28 },
+      { x: 3140, y: 388, w: 280, h: 28 },
+      { x: 3620, y: 320, w: 250, h: 28 },
+      { x: 4080, y: 398, w: 280, h: 28 },
+      { x: 4560, y: 330, w: 250, h: 28 },
+    ],
+    checkpoints: [
+      { x: 520, label: "Ogre Babies swing clubs every ten seconds." },
+      { x: 2600, label: "The Ogre boss swings hard every five seconds." },
+      { x: 4620, label: "The Ogre needs four hits to go down." },
+    ],
+    enemies: [
+      { type: "ogreBaby", x: 600, y: GROUND_Y - 74, minX: 500, maxX: 840 },
+      { type: "chomper", x: 1040, y: 322 - CHOMPER_FEET_OFFSET, minX: 820, maxX: 1060 },
+      { type: "ghostBoy", x: 1440, y: 244 },
+      { type: "monsterboy", x: 1860, y: 334 - 74, minX: 1720, maxX: 1970 },
+      { type: "ogreBaby", x: 2320, y: 394 - 74, minX: 2160, maxX: 2460 },
+      { type: "chomper", x: 2760, y: 328 - CHOMPER_FEET_OFFSET, minX: 2660, maxX: 2910 },
+      { type: "ghostBoy", x: 3280, y: 238 },
+      { type: "monsterboy", x: 3720, y: 320 - 74, minX: 3620, maxX: 3870 },
+      { type: "ogreBaby", x: 4220, y: 398 - 74, minX: 4080, maxX: 4360 },
+      { type: "chomper", x: 4670, y: 330 - CHOMPER_FEET_OFFSET, minX: 4560, maxX: 4810 },
+    ],
+    collectibles: [
+      { type: "heart", x: 1820, y: 286 },
+      { type: "blackSun", x: 3640, y: 272 },
+    ],
+    boss: { type: "ogreboss", x: 5000, minX: 4860, maxX: 5300, hp: 4 },
+    jamesX: 5430,
+    flags: { boss: 4840, james: 5390 },
+  },
 ];
 
 let level = levels[0];
@@ -436,16 +560,21 @@ function startLevel(levelIndex, character = state.selected, health = 3, attackUn
   enemies = level.enemies.flatMap((enemy) => makeEnemyWave(enemy, state.monsterMultiplier));
   enemyProjectiles = [];
   collectibles = (level.collectibles || []).map((item) => makeCollectible(item.type, item.x, item.y));
+  const bossStats = getBossStats(level.boss.type);
   boss = {
+    type: level.boss.type || "boss",
     x: level.boss.x,
-    y: GROUND_Y - 104,
-    w: 86,
-    h: 96,
+    y: GROUND_Y - bossStats.h - bossStats.groundOffset,
+    w: bossStats.w,
+    h: bossStats.h,
     vx: -42,
     minX: level.boss.minX,
     maxX: level.boss.maxX,
-    hp: 3,
+    hp: level.boss.hp || bossStats.hp,
     hurtTimer: 0,
+    attackCooldown: bossStats.attackCooldown,
+    attackTimer: 0,
+    attackHasHit: false,
     defeated: false,
     animTime: 0,
   };
@@ -458,6 +587,25 @@ function startLevel(levelIndex, character = state.selected, health = 3, attackUn
     animTime: 0,
   };
   particles = [];
+}
+
+function getBossStats(type = "boss") {
+  if (type === "ogreboss") {
+    return {
+      w: 102,
+      h: PLAYER_STANDING_HEIGHT * 2,
+      hp: 4,
+      attackCooldown: 5,
+      groundOffset: 0,
+    };
+  }
+  return {
+    w: 86,
+    h: 96,
+    hp: 3,
+    attackCooldown: 0,
+    groundOffset: 8,
+  };
 }
 
 function makeEnemyWave(enemy, multiplier) {
@@ -476,6 +624,7 @@ function makeEnemyCopy(enemy, index, total) {
     ? enemy.x
     : minX + ((maxX - minX) * (index + 1)) / (total + 1);
 
+  if (enemy.type === "ogreBaby") return makeOgreBaby(x, enemy.y, minX, maxX);
   if (enemy.type === "monsterboy") return makeMonsterboy(x, enemy.y, minX, maxX);
   return makeChomper(x, enemy.y, minX, maxX);
 }
@@ -547,6 +696,26 @@ function makeMonsterboy(x, y, minX, maxX) {
     attackCooldown: random(0.8, 1.5),
     attackTimer: 0,
     hp: 2,
+    defeated: false,
+    hurtTimer: 0,
+    animTime: 0,
+  };
+}
+
+function makeOgreBaby(x, y, minX, maxX) {
+  return {
+    type: "ogreBaby",
+    x,
+    y,
+    w: 52,
+    h: 74,
+    vx: -84,
+    minX,
+    maxX,
+    facing: -1,
+    attackCooldown: random(5.5, 8.5),
+    attackTimer: 0,
+    attackHasHit: false,
     defeated: false,
     hurtTimer: 0,
     animTime: 0,
@@ -885,6 +1054,8 @@ function updateEnemies(dt) {
 
     if (enemy.type === "ghostBoy") {
       updateGhostBoy(enemy, dt);
+    } else if (enemy.type === "ogreBaby") {
+      updateOgreBaby(enemy, dt);
     } else if (enemy.type === "monsterboy") {
       updateMonsterboy(enemy, dt);
     } else {
@@ -973,6 +1144,45 @@ function updateMonsterboy(enemy, dt) {
   }
 }
 
+function updateOgreBaby(enemy, dt) {
+  if (enemy.hurtTimer > 0) enemy.hurtTimer -= dt;
+  if (enemy.attackTimer > 0) enemy.attackTimer -= dt;
+  if (enemy.attackCooldown > 0) enemy.attackCooldown -= dt;
+
+  enemy.x += enemy.vx * dt;
+  if (enemy.x < enemy.minX || enemy.x + enemy.w > enemy.maxX) {
+    enemy.vx *= -1;
+    enemy.x = clamp(enemy.x, enemy.minX, enemy.maxX - enemy.w);
+  }
+  enemy.facing = enemy.vx < 0 ? -1 : 1;
+
+  if (enemy.attackCooldown <= 0) {
+    enemy.attackCooldown = 10;
+    enemy.attackTimer = 0.62;
+    enemy.attackHasHit = false;
+  }
+
+  tryClubSwing(enemy, 64, 48, 0.4, 0.12);
+}
+
+function tryClubSwing(attacker, reachX, reachY, hitStart, hitEnd) {
+  if (attacker.attackTimer <= 0 || attacker.attackHasHit) return;
+  if (attacker.attackTimer < hitEnd || attacker.attackTimer > hitStart) return;
+  const clubBox = getClubHitBox(attacker, reachX, reachY);
+  if (!intersects(player, clubBox)) return;
+  attacker.attackHasHit = true;
+  hurtPlayer();
+}
+
+function getClubHitBox(attacker, reachX, reachY) {
+  return {
+    x: attacker.facing > 0 ? attacker.x + attacker.w - 4 : attacker.x - reachX + 4,
+    y: attacker.y + attacker.h * 0.22,
+    w: reachX,
+    h: reachY,
+  };
+}
+
 function fireMonsterboyProjectile(enemy, direction) {
   enemy.facing = direction;
   enemy.attackTimer = 0.48;
@@ -1008,6 +1218,17 @@ function updateBoss(dt) {
   if (boss.hurtTimer > 0) boss.hurtTimer -= dt;
   if (boss.defeated) return;
 
+  if (boss.type === "ogreboss") {
+    if (boss.attackTimer > 0) boss.attackTimer -= dt;
+    if (boss.attackCooldown > 0) boss.attackCooldown -= dt;
+    if (boss.attackCooldown <= 0) {
+      boss.attackCooldown = 5;
+      boss.attackTimer = 0.72;
+      boss.attackHasHit = false;
+    }
+    tryClubSwing(boss, 106, 70, 0.5, 0.14);
+  }
+
   boss.x += boss.vx * dt;
   if (boss.x < boss.minX || boss.x + boss.w > boss.maxX) {
     boss.vx *= -1;
@@ -1016,32 +1237,16 @@ function updateBoss(dt) {
 
   if (intersects(player, boss)) {
     if (isStomp(player, boss)) {
-      const growthHeight = damageBoss(true);
+      damageBoss();
       player.y = Math.min(player.y, boss.y - player.h - 2);
-      player.vy = -getBossStompBounceSpeed(growthHeight);
+      player.vy = -BOSS_STOMP_BOUNCE_SPEED;
     } else {
       hurtPlayer();
     }
   }
 }
 
-function growBoss() {
-  const centerX = boss.x + boss.w / 2;
-  const bottomY = boss.y + boss.h;
-  const previousHeight = boss.h;
-  boss.w *= 1.5;
-  boss.h *= 1.5;
-  boss.x = clamp(centerX - boss.w / 2, boss.minX, boss.maxX - boss.w);
-  boss.y = bottomY - boss.h;
-  return boss.h - previousHeight;
-}
-
-function getBossStompBounceSpeed(extraHeight) {
-  return Math.sqrt((BOSS_STOMP_BOUNCE_SPEED ** 2) + (2 * GRAVITY * Math.max(extraHeight, 0)));
-}
-
-function damageBoss(shouldGrow = false) {
-  const growthHeight = shouldGrow ? growBoss() : 0;
+function damageBoss() {
   boss.hp -= 1;
   boss.hurtTimer = 0.45;
   addScore(100);
@@ -1050,12 +1255,11 @@ function damageBoss(shouldGrow = false) {
     spawnBossDefeatBurst();
     boss.defeated = true;
     boss.vx = 0;
-    boss.y = GROUND_Y - 52;
+    boss.y = boss.type === "ogreboss" ? GROUND_Y - boss.h : GROUND_Y - 52;
     dropHeart();
   } else {
     spawnBurst(boss.x + boss.w / 2, boss.y + 18, "#facc15");
   }
-  return growthHeight;
 }
 
 function spawnBossDefeatBurst() {
@@ -1157,8 +1361,8 @@ function defeatEnemy(enemy, source = "stomp") {
   enemy.defeated = true;
   enemy.hurtTimer = 0.8;
   if (source === "stomp") player.vy = -440;
-  const burstColor = enemy.type === "ghostBoy" ? "#c084fc" : enemy.type === "monsterboy" ? "#22c55e" : "#e5e7eb";
-  const enemyName = enemy.type === "ghostBoy" ? "Ghost Boy" : enemy.type === "monsterboy" ? "Monsterboy" : "Chomper";
+  const burstColor = enemy.type === "ghostBoy" ? "#c084fc" : enemy.type === "monsterboy" ? "#22c55e" : enemy.type === "ogreBaby" ? "#fb923c" : "#e5e7eb";
+  const enemyName = enemy.type === "ghostBoy" ? "Ghost Boy" : enemy.type === "monsterboy" ? "Monsterboy" : enemy.type === "ogreBaby" ? "Ogre Baby" : "Chomper";
   spawnBurst(enemy.x + enemy.w / 2, enemy.y + 10, burstColor);
   flashMessage(`${enemyName} defeated!`);
 }
@@ -1257,6 +1461,7 @@ function saveHighScore(score) {
 function getLevelIntroMessage() {
   if (state.levelIndex === 1) return `${level.name}: watch for Ghost Boys!`;
   if (state.levelIndex === 2) return `${level.name}: dodge the green flames!`;
+  if (state.levelIndex === 3) return `${level.name}: Ogre ahead. Dodge the club swing!`;
   return `${level.name}: rescue James!`;
 }
 
@@ -1298,7 +1503,7 @@ function draw() {
     const nextLevel = levels[state.levelIndex + 1];
     drawPanel("James Is Safe!", `${nextLevel.name} is ahead.`, `Get ready for level ${state.levelIndex + 2}...`);
   } else if (state.mode === "won") {
-    drawPanel("James Rescued!", "You cleared all three levels and saved James.", "");
+    drawPanel("James Rescued!", "You cleared all four levels and saved James.", "");
   } else if (state.mode === "lost") {
     drawGameOverPanel();
   }
@@ -1327,7 +1532,12 @@ function drawWorld() {
 
 function drawSky() {
   const gradient = ctx.createLinearGradient(0, 0, 0, HEIGHT);
-  if (state.levelIndex === 2) {
+  if (state.levelIndex === 3) {
+    gradient.addColorStop(0, "#2a1608");
+    gradient.addColorStop(0.4, "#6b4322");
+    gradient.addColorStop(0.78, "#a87544");
+    gradient.addColorStop(1, "#c89770");
+  } else if (state.levelIndex === 2) {
     gradient.addColorStop(0, "#14532d");
     gradient.addColorStop(0.58, "#22c55e");
     gradient.addColorStop(1, "#bbf7d0");
@@ -1342,6 +1552,8 @@ function drawSky() {
   }
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+  if (state.levelIndex === 3) return;
 
   ctx.fillStyle = state.levelIndex === 1 ? "rgba(226, 232, 240, 0.28)" : state.levelIndex === 2 ? "rgba(240, 253, 244, 0.66)" : "rgba(255,255,255,0.85)";
   drawCloud(140, 80);
@@ -1367,7 +1579,105 @@ function drawBackgroundDetails() {
     drawForestTree(2360, GROUND_Y, 1.18);
     drawForestTree(3240, GROUND_Y, 0.98);
     drawForestTree(4320, GROUND_Y, 1.08);
+  } else if (state.levelIndex === 3) {
+    drawCaveSpikes();
   }
+}
+
+const CAVE_STALACTITES = [
+  { x: 180, base: 78, length: 150 },
+  { x: 420, base: 46, length: 92 },
+  { x: 740, base: 90, length: 180 },
+  { x: 1050, base: 56, length: 118 },
+  { x: 1380, base: 72, length: 140 },
+  { x: 1720, base: 100, length: 196 },
+  { x: 2040, base: 50, length: 96 },
+  { x: 2360, base: 78, length: 158 },
+  { x: 2680, base: 62, length: 128 },
+  { x: 3020, base: 90, length: 174 },
+  { x: 3360, base: 54, length: 108 },
+  { x: 3690, base: 82, length: 162 },
+  { x: 4030, base: 70, length: 138 },
+  { x: 4380, base: 96, length: 188 },
+  { x: 4720, base: 58, length: 112 },
+  { x: 5060, base: 84, length: 168 },
+  { x: 5380, base: 50, length: 102 },
+];
+
+const CAVE_STALAGMITES = [
+  { x: 80, base: 90, length: 132 },
+  { x: 280, base: 54, length: 78 },
+  { x: 560, base: 84, length: 124 },
+  { x: 880, base: 62, length: 92 },
+  { x: 1200, base: 96, length: 142 },
+  { x: 1520, base: 56, length: 84 },
+  { x: 1880, base: 78, length: 116 },
+  { x: 2220, base: 102, length: 150 },
+  { x: 2540, base: 60, length: 90 },
+  { x: 2880, base: 88, length: 128 },
+  { x: 3200, base: 72, length: 108 },
+  { x: 3540, base: 94, length: 138 },
+  { x: 3880, base: 58, length: 86 },
+  { x: 4220, base: 86, length: 126 },
+  { x: 4560, base: 74, length: 110 },
+  { x: 4880, base: 100, length: 146 },
+  { x: 5220, base: 64, length: 96 },
+  { x: 5480, base: 80, length: 118 },
+];
+
+function drawCaveSpikes() {
+  for (const s of CAVE_STALACTITES) {
+    drawStalactite(s.x, s.base, s.length);
+  }
+  for (const s of CAVE_STALAGMITES) {
+    drawStalagmite(s.x, s.base, s.length);
+  }
+}
+
+function drawStalactite(x, base, length) {
+  const half = base / 2;
+  const grad = ctx.createLinearGradient(x - half, 0, x + half, 0);
+  grad.addColorStop(0, "#5c3618");
+  grad.addColorStop(0.5, "#a87544");
+  grad.addColorStop(1, "#5c3618");
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(x - half, 0);
+  ctx.lineTo(x + half, 0);
+  ctx.lineTo(x + half * 0.18, length);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "rgba(255, 220, 170, 0.18)";
+  ctx.beginPath();
+  ctx.moveTo(x - half * 0.55, 0);
+  ctx.lineTo(x - half * 0.05, 0);
+  ctx.lineTo(x + half * 0.05, length * 0.7);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawStalagmite(x, base, length) {
+  const half = base / 2;
+  const baseY = GROUND_Y;
+  const tipY = baseY - length;
+  const grad = ctx.createLinearGradient(x - half, 0, x + half, 0);
+  grad.addColorStop(0, "#4a2a12");
+  grad.addColorStop(0.5, "#9a6938");
+  grad.addColorStop(1, "#4a2a12");
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(x - half, baseY);
+  ctx.lineTo(x + half, baseY);
+  ctx.lineTo(x - half * 0.18, tipY);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "rgba(255, 220, 170, 0.16)";
+  ctx.beginPath();
+  ctx.moveTo(x + half * 0.05, baseY);
+  ctx.lineTo(x + half * 0.55, baseY);
+  ctx.lineTo(x - half * 0.05, tipY + length * 0.3);
+  ctx.closePath();
+  ctx.fill();
 }
 
 function drawForestTree(x, groundY, scale) {
@@ -1430,9 +1740,9 @@ function drawDeadTree(x, groundY, scale) {
 
 function drawPlatforms() {
   for (const platform of level.platforms) {
-    ctx.fillStyle = state.levelIndex === 2 ? "#5f3b1f" : "#7c4a2d";
+    ctx.fillStyle = state.levelIndex === 3 ? "#7a4a22" : state.levelIndex === 2 ? "#5f3b1f" : "#7c4a2d";
     ctx.fillRect(platform.x, platform.y, platform.w, platform.h);
-    ctx.fillStyle = state.levelIndex === 2 ? "#16a34a" : "#22c55e";
+    ctx.fillStyle = state.levelIndex === 3 ? "#c89464" : state.levelIndex === 2 ? "#16a34a" : "#22c55e";
     ctx.fillRect(platform.x, platform.y, platform.w, Math.min(12, platform.h));
     ctx.fillStyle = "rgba(0,0,0,0.16)";
     for (let x = platform.x + 12; x < platform.x + platform.w; x += 46) {
@@ -1571,6 +1881,21 @@ function drawEnemies() {
       continue;
     }
 
+    if (enemy.type === "ogreBaby") {
+      const animation = enemy.defeated ? "defeated" : enemy.hurtTimer > 0 ? "hurt" : enemy.attackTimer > 0 ? "attack" : "walk";
+      drawEntity(
+        enemy,
+        "ogrebaby",
+        animation,
+        enemy.x - 29,
+        enemy.y - 24,
+        enemy.w + 58,
+        enemy.h + 28,
+        enemy.facing,
+      );
+      continue;
+    }
+
     drawEntity(
       enemy,
       "chomper",
@@ -1617,6 +1942,13 @@ function drawMonsterFlame(projectile) {
 }
 
 function drawBoss() {
+  if (boss.type === "ogreboss") {
+    if (boss.defeated) return;
+    const animation = boss.hurtTimer > 0 ? "hurt" : boss.attackTimer > 0 ? "attack" : "walk";
+    drawEntity(boss, "ogreboss", animation, boss.x - 26, boss.y - 44, boss.w + 56, boss.h + 44, boss.vx < 0 ? -1 : 1);
+    return;
+  }
+
   const animation = boss.defeated ? "defeated" : boss.hurtTimer > 0 ? "hurt" : "walk";
   const drawY = boss.defeated ? boss.y - 30 : boss.y - 5;
   const drawH = boss.defeated ? boss.h - 10 : boss.h + 12;
@@ -1662,7 +1994,7 @@ function drawParticles() {
 
 function drawHud() {
   ctx.fillStyle = "rgba(15, 23, 42, 0.58)";
-  drawRoundRect(18, 16, 328, 72, 12);
+  drawRoundRect(18, 16, 328, 96, 12);
   ctx.fillStyle = "#f8fafc";
   ctx.font = canvasFont(800, 22);
   ctx.fillText(`Hero: ${capitalize(state.selected)}  L${state.levelIndex + 1}`, 34, 44);
@@ -1673,10 +2005,10 @@ function drawHud() {
   ctx.fillText(`High: ${state.highScore}`, 214, 60);
   ctx.fillStyle = "#f8fafc";
   ctx.font = canvasFont(700, 18);
-  ctx.fillText(`Health: ${"I ".repeat(Math.max(player?.health || 0, 0)).trim()}`, 34, 72);
+  ctx.fillText(`Health: ${"I ".repeat(Math.max(player?.health || 0, 0)).trim()}`, 34, 78);
   if (player?.attackUnlocked) {
     ctx.fillStyle = "#c4b5fd";
-    ctx.fillText(`CTRL attack x${player.sunCount}`, 146, 72);
+    ctx.fillText(`CTRL attack x${player.sunCount}`, 34, 100);
   }
 
   ctx.fillStyle = "rgba(15, 23, 42, 0.58)";
