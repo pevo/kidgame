@@ -1,5 +1,7 @@
 const canvas = document.querySelector("#game");
 const ctx = canvas.getContext("2d");
+const gameFrame = document.querySelector(".game-frame");
+const fullscreenButton = document.querySelector(".fullscreen-button");
 
 ctx.imageSmoothingEnabled = false;
 
@@ -955,9 +957,10 @@ function updateMonsterboy(enemy, dt) {
 
   const dx = player.x + player.w / 2 - (enemy.x + enemy.w / 2);
   const dy = Math.abs(player.y + player.h / 2 - (enemy.y + enemy.h / 2));
-  const canShoot = Math.abs(dx) < 470 && dy < 130 && enemy.attackCooldown <= 0;
+  const directionToPlayer = Math.sign(dx || enemy.facing);
+  const canShoot = Math.abs(dx) < 470 && dy < 130 && enemy.attackCooldown <= 0 && directionToPlayer === enemy.facing;
   if (canShoot) {
-    fireMonsterboyProjectile(enemy, Math.sign(dx || enemy.facing));
+    fireMonsterboyProjectile(enemy, directionToPlayer);
   }
 }
 
@@ -1258,9 +1261,9 @@ function draw() {
     const nextLevel = levels[state.levelIndex + 1];
     drawPanel("James Is Safe!", `${nextLevel.name} is ahead.`, `Get ready for level ${state.levelIndex + 2}...`);
   } else if (state.mode === "won") {
-    drawPanel("James Rescued!", "You cleared all three levels and saved James.", "Press R to play again.");
+    drawPanel("James Rescued!", "You cleared all three levels and saved James.", "");
   } else if (state.mode === "lost") {
-    drawPanel("Game Over", "Enemies are dangerous from the side.", "Press R to try again.");
+    drawPanel("Game Over", "Enemies are dangerous from the side.", "Refresh the page to play again.");
   }
 }
 
@@ -1621,8 +1624,8 @@ function drawParticles() {
 }
 
 function drawHud() {
-  ctx.fillStyle = "rgba(15, 23, 42, 0.76)";
-  ctx.fillRect(18, 16, 328, 72);
+  ctx.fillStyle = "rgba(15, 23, 42, 0.58)";
+  drawRoundRect(18, 16, 328, 72, 12);
   ctx.fillStyle = "#f8fafc";
   ctx.font = canvasFont(800, 22);
   ctx.fillText(`Hero: ${capitalize(state.selected)}  L${state.levelIndex + 1}`, 34, 44);
@@ -1633,8 +1636,8 @@ function drawHud() {
     ctx.fillText(`CTRL attack x${player.sunCount}`, 146, 72);
   }
 
-  ctx.fillStyle = "rgba(15, 23, 42, 0.76)";
-  ctx.fillRect(WIDTH - 328, 16, 310, 72);
+  ctx.fillStyle = "rgba(15, 23, 42, 0.58)";
+  drawRoundRect(WIDTH - 328, 16, 310, 72, 12);
   ctx.fillStyle = "#f8fafc";
   ctx.font = canvasFont(800, 18);
   ctx.fillText("Objective", WIDTH - 310, 44);
@@ -1643,7 +1646,7 @@ function drawHud() {
 
   if (state.messageTimer > 0) {
     ctx.fillStyle = "rgba(15, 23, 42, 0.84)";
-    ctx.fillRect(WIDTH / 2 - 230, 104, 460, 44);
+    drawRoundRect(WIDTH / 2 - 230, 104, 460, 44, 12);
     ctx.fillStyle = "#fde047";
     ctx.font = canvasFont(800, 18);
     ctx.textAlign = "center";
@@ -1672,8 +1675,8 @@ function drawCharacterCard(character, x, y) {
   ctx.fillStyle = isSelected ? "rgba(250, 204, 21, 0.24)" : "rgba(248, 250, 252, 0.12)";
   ctx.strokeStyle = isSelected ? "#facc15" : "rgba(248, 250, 252, 0.45)";
   ctx.lineWidth = 4;
-  ctx.fillRect(x, y, 180, 230);
-  ctx.strokeRect(x, y, 180, 230);
+  drawRoundRect(x, y, 180, 230, 16);
+  strokeRoundRect(x, y, 180, 230, 16);
 
   const fakeEntity = { animTime: performance.now() / 1000 };
   drawEntity(fakeEntity, character, "idle", x + 55, y + 36, 70, 112, 1);
@@ -1688,6 +1691,8 @@ function drawCharacterCard(character, x, y) {
 function drawPanel(title, line1, line2) {
   ctx.fillStyle = "rgba(15, 23, 42, 0.86)";
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  ctx.fillStyle = "rgba(15, 23, 42, 0.72)";
+  drawRoundRect(WIDTH / 2 - 320, HEIGHT / 2 - 112, 640, 204, 21);
   ctx.fillStyle = "#f8fafc";
   ctx.textAlign = "center";
   ctx.font = canvasFont(850, 52, TITLE_FONT);
@@ -1696,6 +1701,18 @@ function drawPanel(title, line1, line2) {
   ctx.fillText(line1, WIDTH / 2, HEIGHT / 2 - 12);
   if (line2) ctx.fillText(line2, WIDTH / 2, HEIGHT / 2 + 28);
   ctx.textAlign = "left";
+}
+
+function drawRoundRect(x, y, w, h, radius) {
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, radius);
+  ctx.fill();
+}
+
+function strokeRoundRect(x, y, w, h, radius) {
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, radius);
+  ctx.stroke();
 }
 
 function intersects(a, b) {
@@ -1760,11 +1777,6 @@ window.addEventListener("keydown", (event) => {
     if (event.code === "KeyA") selectCharacter("maria");
     if (event.code === "Enter") selectCharacter(state.selected);
   }
-
-  if ((state.mode === "won" || state.mode === "lost") && event.code === "KeyR") {
-    resetGame(state.selected);
-    state.mode = "select";
-  }
 });
 
 window.addEventListener("keyup", (event) => {
@@ -1785,6 +1797,14 @@ canvas.addEventListener("click", (event) => {
   ];
   const card = cards.find((candidate) => x >= candidate.x && x <= candidate.x + candidate.w && y >= candidate.y && y <= candidate.y + candidate.h);
   if (card) selectCharacter(card.character);
+});
+
+fullscreenButton?.addEventListener("click", () => {
+  if (document.fullscreenElement) {
+    document.exitFullscreen();
+  } else {
+    gameFrame?.requestFullscreen();
+  }
 });
 
 loadImages();
