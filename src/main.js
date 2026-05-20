@@ -6,8 +6,25 @@ ctx.imageSmoothingEnabled = false;
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
 const GROUND_Y = 474;
+const GRAVITY = 1650;
 const CHOMPER_FEET_OFFSET = 72;
+const CHOMPER_HITBOX_Y_OFFSET = 10;
 const MAX_HEALTH = 5;
+const PLAYER_STANDING_HEIGHT = 82;
+const PLAYER_DUCKING_HEIGHT = 48;
+const BOSS_STOMP_BOUNCE_SPEED = 500;
+const GHOST_CHASE_DISTANCE = 380;
+const GHOST_LEASH_X = 440;
+const GHOST_LEASH_Y = 290;
+const GHOST_CHASE_SPEED_X = 76;
+const GHOST_CHASE_SPEED_Y = 48;
+const LEDGE_HAND_Y = 26;
+const LEDGE_GRAB_VERT_TOLERANCE = 26;
+const LEDGE_GRAB_HORZ_TOLERANCE = 18;
+const LEDGE_CLIMB_DURATION = 0.34;
+const LEDGE_RELEASE_GAP = 2;
+const TITLE_FONT = '"Fraunces", Georgia, serif';
+const UI_FONT = '"Nunito", "Trebuchet MS", sans-serif';
 
 const keys = new Set();
 const images = {};
@@ -24,6 +41,7 @@ const state = {
   mode: "loading",
   selected: "mark",
   levelIndex: 0,
+  monsterMultiplier: 1,
   messageTimer: 0,
   nextLevelTimer: 0,
   lastTime: 0,
@@ -371,10 +389,11 @@ function loadImages() {
 function resetGame(character = state.selected) {
   state.selected = character;
   state.levelIndex = 0;
+  state.monsterMultiplier = 1;
   startLevel(0, character, 3, false);
 }
 
-function startLevel(levelIndex, character = state.selected, health = 3, attackUnlocked = false) {
+function startLevel(levelIndex, character = state.selected, health = 3, attackUnlocked = false, sunCount = attackUnlocked ? 1 : 0) {
   level = levels[levelIndex];
   state.levelIndex = levelIndex;
   state.selected = character;
@@ -386,24 +405,26 @@ function startLevel(levelIndex, character = state.selected, health = 3, attackUn
     x: 90,
     y: GROUND_Y - 88,
     w: 38,
-    h: 82,
+    h: PLAYER_STANDING_HEIGHT,
     vx: 0,
     vy: 0,
     facing: 1,
     grounded: false,
     invincible: 0,
     health,
-    attackUnlocked,
+    sunCount,
+    attackUnlocked: sunCount > 0,
     attackTimer: 0,
     attackCooldown: 0,
     attackHasHit: false,
+    attackDirection: "forward",
     animTime: 0,
+    ducking: false,
+    ledgeGrab: null,
+    climbing: false,
+    climbTimer: 0,
   };
-  enemies = level.enemies.map((enemy) => {
-    if (enemy.type === "ghostBoy") return makeGhostBoy(enemy.x, enemy.y);
-    if (enemy.type === "monsterboy") return makeMonsterboy(enemy.x, enemy.y, enemy.minX, enemy.maxX);
-    return makeChomper(enemy.x, enemy.y, enemy.minX, enemy.maxX);
-  });
+  enemies = level.enemies.flatMap((enemy) => makeEnemyWave(enemy, state.monsterMultiplier));
   enemyProjectiles = [];
   collectibles = (level.collectibles || []).map((item) => makeCollectible(item.type, item.x, item.y));
   boss = {
@@ -430,6 +451,30 @@ function startLevel(levelIndex, character = state.selected, health = 3, attackUn
   particles = [];
 }
 
+function makeEnemyWave(enemy, multiplier) {
+  return Array.from({ length: multiplier }, (_, index) => makeEnemyCopy(enemy, index, multiplier));
+}
+
+function makeEnemyCopy(enemy, index, total) {
+  if (enemy.type === "ghostBoy") {
+    const offset = spreadOffset(index, total, 90);
+    return makeGhostBoy(clamp(enemy.x + offset, 160, level.worldWidth - 160), enemy.y);
+  }
+
+  const minX = enemy.minX;
+  const maxX = enemy.maxX;
+  const x = total === 1
+    ? enemy.x
+    : minX + ((maxX - minX) * (index + 1)) / (total + 1);
+
+  if (enemy.type === "monsterboy") return makeMonsterboy(x, enemy.y, minX, maxX);
+  return makeChomper(x, enemy.y, minX, maxX);
+}
+
+function spreadOffset(index, total, spacing) {
+  return (index - (total - 1) / 2) * spacing;
+}
+
 function makeCollectible(type, x, y) {
   return {
     type,
@@ -447,7 +492,7 @@ function makeChomper(x, y, minX, maxX) {
   return {
     type: "chomper",
     x,
-    y,
+    y: y + CHOMPER_HITBOX_Y_OFFSET,
     w: 58,
     h: 52,
     vx: -56,
@@ -492,6 +537,7 @@ function makeMonsterboy(x, y, minX, maxX) {
     facing: -1,
     attackCooldown: random(0.8, 1.5),
     attackTimer: 0,
+    hp: 2,
     defeated: false,
     hurtTimer: 0,
     animTime: 0,
@@ -522,7 +568,7 @@ function update(dt) {
     updateParticles(dt);
     state.nextLevelTimer -= dt;
     if (state.nextLevelTimer <= 0) {
-      startLevel(state.levelIndex + 1, state.selected, Math.max(player.health, 1), player.attackUnlocked);
+      startLevel(state.levelIndex + 1, state.selected, Math.max(player.health, 1), player.attackUnlocked, player.sunCount);
       state.mode = "playing";
       flashMessage(getLevelIntroMessage());
     }
@@ -541,20 +587,34 @@ function updateIdleAnimations(dt) {
 }
 
 function updatePlayer(dt) {
+  if (player.character === "mark" && player.climbing) {
+    updateLedgeClimb(dt);
+    finishPlayerFrame(dt);
+    return;
+  }
+  if (player.character === "mark" && player.ledgeGrab) {
+    updateLedgeHang(dt);
+    finishPlayerFrame(dt);
+    return;
+  }
+
   const movingLeft = keys.has("ArrowLeft") || keys.has("KeyA");
   const movingRight = keys.has("ArrowRight") || keys.has("KeyD");
   const jumping = keys.has("Space") || keys.has("ArrowUp") || keys.has("KeyW");
+  const ducking = player.grounded && isPressingDown();
+  updatePlayerDucking(ducking);
 
   const accel = 1150;
   const friction = player.grounded ? 0.84 : 0.96;
   const maxSpeed = 245;
+  const speedScale = player.ducking ? 0.45 : 1;
 
   if (movingLeft) {
-    player.vx -= accel * dt;
+    player.vx -= accel * speedScale * dt;
     player.facing = -1;
   }
   if (movingRight) {
-    player.vx += accel * dt;
+    player.vx += accel * speedScale * dt;
     player.facing = 1;
   }
   if (!movingLeft && !movingRight) {
@@ -562,12 +622,12 @@ function updatePlayer(dt) {
   }
   player.vx = clamp(player.vx, -maxSpeed, maxSpeed);
 
-  if (jumping && player.grounded) {
+  if (jumping && player.grounded && !player.ducking) {
     player.vy = player.character === "maria" ? -575 * 1.3 : -575;
     player.grounded = false;
   }
 
-  player.vy += 1650 * dt;
+  player.vy += GRAVITY * dt;
   player.x += player.vx * dt;
   resolveHorizontalCollisions(player);
 
@@ -575,8 +635,37 @@ function updatePlayer(dt) {
   player.grounded = false;
   resolveVerticalCollisions(player);
 
+  if (player.character === "mark" && !player.grounded && player.vy > 40) {
+    tryAttachLedgeGrab();
+  }
+
   player.x = clamp(player.x, 12, level.worldWidth - player.w - 12);
   if (player.y > HEIGHT + 240) hurtPlayer(true);
+  finishPlayerFrame(dt);
+}
+
+function updatePlayerDucking(shouldDuck) {
+  if (shouldDuck === player.ducking) return;
+  if (!shouldDuck && !canStandUp()) return;
+
+  const bottom = player.y + player.h;
+  player.ducking = shouldDuck;
+  player.h = shouldDuck ? PLAYER_DUCKING_HEIGHT : PLAYER_STANDING_HEIGHT;
+  player.y = bottom - player.h;
+}
+
+function canStandUp() {
+  if (!player.ducking) return true;
+  const standingBox = {
+    x: player.x,
+    y: player.y + player.h - PLAYER_STANDING_HEIGHT,
+    w: player.w,
+    h: PLAYER_STANDING_HEIGHT,
+  };
+  return !level.platforms.some((platform) => intersects(standingBox, platform));
+}
+
+function finishPlayerFrame(dt) {
   if (player.invincible > 0) player.invincible -= dt;
   if (player.attackCooldown > 0) player.attackCooldown -= dt;
   player.animTime += dt;
@@ -589,16 +678,153 @@ function updatePlayer(dt) {
   if (state.messageTimer > 0) state.messageTimer -= dt;
 }
 
+function isGrabbableLedge(platform) {
+  return platform.h <= 40 && platform.y < GROUND_Y - 12;
+}
+
+function findLedgeGrab() {
+  const handY = player.y + LEDGE_HAND_Y;
+
+  for (const platform of level.platforms) {
+    if (!isGrabbableLedge(platform)) continue;
+
+    const ledgeY = platform.y;
+    if (handY < ledgeY - LEDGE_GRAB_VERT_TOLERANCE || handY > ledgeY + 10) continue;
+    if (player.y + player.h * 0.35 < ledgeY - 6) continue;
+
+    const leftReach = (player.x + player.w) - platform.x;
+    if (
+      leftReach >= -LEDGE_GRAB_HORZ_TOLERANCE
+      && leftReach <= LEDGE_GRAB_HORZ_TOLERANCE
+      && player.x + player.w / 2 < platform.x + platform.w * 0.55
+    ) {
+      return {
+        platform,
+        side: "left",
+        facing: 1,
+        x: platform.x - player.w + 10,
+        y: ledgeY - player.h + 8,
+      };
+    }
+
+    const rightReach = (platform.x + platform.w) - player.x;
+    if (
+      rightReach >= -LEDGE_GRAB_HORZ_TOLERANCE
+      && rightReach <= LEDGE_GRAB_HORZ_TOLERANCE
+      && player.x + player.w / 2 > platform.x + platform.w * 0.45
+    ) {
+      return {
+        platform,
+        side: "right",
+        facing: -1,
+        x: platform.x + platform.w - 10,
+        y: ledgeY - player.h + 8,
+      };
+    }
+  }
+
+  return null;
+}
+
+function tryAttachLedgeGrab() {
+  const grab = findLedgeGrab();
+  if (!grab) return;
+  player.ledgeGrab = grab;
+  player.x = grab.x;
+  player.y = grab.y;
+  player.vx = 0;
+  player.vy = 0;
+  player.facing = grab.facing;
+}
+
+function releaseLedgeGrab(dropVy = 0) {
+  const grab = player.ledgeGrab;
+  if (grab && !player.climbing) {
+    player.x = grab.side === "left"
+      ? grab.platform.x - player.w - LEDGE_RELEASE_GAP
+      : grab.platform.x + grab.platform.w + LEDGE_RELEASE_GAP;
+  }
+  player.ledgeGrab = null;
+  player.climbing = false;
+  player.climbTimer = 0;
+  player.vy = dropVy;
+}
+
+function startLedgeClimb() {
+  const grab = player.ledgeGrab;
+  const platform = grab.platform;
+  player.climbing = true;
+  player.climbTimer = 0;
+  player.ledgeGrab = {
+    ...grab,
+    climbFrom: { x: player.x, y: player.y },
+    climbTo: {
+      x: grab.side === "left" ? platform.x + 10 : platform.x + platform.w - player.w - 10,
+      y: platform.y - player.h,
+    },
+  };
+}
+
+function updateLedgeHang(dt) {
+  const grab = player.ledgeGrab;
+  player.x = grab.x;
+  player.y = grab.y;
+  player.vx = 0;
+  player.vy = 0;
+  player.facing = grab.facing;
+  player.grounded = false;
+
+  const climbInput = keys.has("ArrowUp") || keys.has("KeyW");
+  const dropInput = keys.has("ArrowDown") || keys.has("KeyS");
+  const jumpOff = keys.has("Space");
+  const movingLeft = keys.has("ArrowLeft") || keys.has("KeyA");
+  const movingRight = keys.has("ArrowRight") || keys.has("KeyD");
+
+  if (dropInput) {
+    releaseLedgeGrab(120);
+    return;
+  }
+  if (jumpOff && !climbInput) {
+    releaseLedgeGrab(-520);
+    player.vx = movingLeft === movingRight ? 0 : movingLeft ? -170 : 170;
+    return;
+  }
+  if (climbInput) {
+    startLedgeClimb();
+  }
+}
+
+function updateLedgeClimb(dt) {
+  const grab = player.ledgeGrab;
+  player.climbTimer += dt;
+  const progress = clamp(player.climbTimer / LEDGE_CLIMB_DURATION, 0, 1);
+  const eased = progress * progress * (3 - 2 * progress);
+  player.x = lerp(grab.climbFrom.x, grab.climbTo.x, eased);
+  player.y = lerp(grab.climbFrom.y, grab.climbTo.y, eased);
+  player.vx = 0;
+  player.vy = 0;
+  player.facing = grab.facing;
+
+  if (progress < 1) return;
+
+  player.x = grab.climbTo.x;
+  player.y = grab.climbTo.y;
+  player.grounded = true;
+  releaseLedgeGrab();
+}
+
 function updateAttack(dt) {
   if (player.attackTimer <= 0) return;
   player.attackTimer -= dt;
+  if (isPressingUp()) player.attackDirection = "up";
 
-  if (player.attackHasHit) return;
   const attackBox = getAttackBox();
+  destroyProjectilesInAttack(attackBox);
+  if (player.attackHasHit) return;
 
   for (const enemy of enemies) {
     if (!enemy.defeated && intersects(attackBox, enemy)) {
-      defeatEnemy(enemy);
+      hitEnemy(enemy);
       player.attackHasHit = true;
     }
   }
@@ -607,6 +833,14 @@ function updateAttack(dt) {
     damageBoss();
     player.attackHasHit = true;
   }
+}
+
+function destroyProjectilesInAttack(attackBox) {
+  enemyProjectiles = enemyProjectiles.filter((projectile) => {
+    if (!intersects(attackBox, projectile)) return true;
+    spawnBurst(projectile.x + projectile.w / 2, projectile.y + projectile.h / 2, "#22c55e");
+    return false;
+  });
 }
 
 function resolveHorizontalCollisions(entity) {
@@ -650,7 +884,7 @@ function updateEnemies(dt) {
 
     if (intersects(player, enemy)) {
       if (isStomp(player, enemy)) {
-        defeatEnemy(enemy);
+        hitEnemy(enemy);
       } else {
         hurtPlayer();
       }
@@ -671,7 +905,7 @@ function updateGhostBoy(enemy, dt) {
   const dy = player.y + player.h / 2 - (enemy.y + enemy.h / 2);
   const horizontalOverlap = Math.abs(dx) < enemy.w * 1.8;
   const playerIsBelow = player.y > enemy.y + enemy.h * 0.7;
-  const nearPlayer = Math.hypot(dx, dy) < 280;
+  const nearPlayer = Math.hypot(dx, dy) < GHOST_CHASE_DISTANCE;
   const playerBelowNearby = playerIsBelow && horizontalOverlap && dy < 280;
 
   enemy.behaviorTimer -= dt;
@@ -686,18 +920,18 @@ function updateGhostBoy(enemy, dt) {
   }
 
   const bobY = enemy.anchorY + Math.sin(enemy.animTime * 2.6 + enemy.phase) * 8;
-  const minX = enemy.anchorX - enemy.w;
-  const maxX = enemy.anchorX + enemy.w;
-  const minY = enemy.anchorY - enemy.h * 0.65;
-  const maxY = enemy.anchorY + enemy.h * 0.65;
+  const minX = enemy.anchorX - GHOST_LEASH_X;
+  const maxX = enemy.anchorX + GHOST_LEASH_X;
+  const minY = enemy.anchorY - GHOST_LEASH_Y;
+  const maxY = enemy.anchorY + GHOST_LEASH_Y;
   let targetX = enemy.anchorX;
   let targetY = bobY;
 
   if (enemy.behavior === "wander") {
     targetX = enemy.anchorX + Math.sin(enemy.animTime * 1.4 + enemy.phase) * enemy.w;
   } else if (enemy.behavior === "chase" && (nearPlayer || playerBelowNearby)) {
-    targetX = enemy.x + Math.sign(dx || 1) * 38 * dt;
-    targetY = enemy.y + Math.sign(dy || 1) * (playerBelowNearby ? 34 : 24) * dt;
+    targetX = enemy.x + Math.sign(dx || 1) * GHOST_CHASE_SPEED_X * dt;
+    targetY = enemy.y + Math.sign(dy || 1) * (playerBelowNearby ? GHOST_CHASE_SPEED_Y * 1.4 : GHOST_CHASE_SPEED_Y) * dt;
   }
 
   const previousX = enemy.x;
@@ -770,25 +1004,56 @@ function updateBoss(dt) {
 
   if (intersects(player, boss)) {
     if (isStomp(player, boss)) {
-      player.vy = -500;
-      damageBoss();
+      const growthHeight = damageBoss(true);
+      player.y = Math.min(player.y, boss.y - player.h - 2);
+      player.vy = -getBossStompBounceSpeed(growthHeight);
     } else {
       hurtPlayer();
     }
   }
 }
 
-function damageBoss() {
+function growBoss() {
+  const centerX = boss.x + boss.w / 2;
+  const bottomY = boss.y + boss.h;
+  const previousHeight = boss.h;
+  boss.w *= 1.5;
+  boss.h *= 1.5;
+  boss.x = clamp(centerX - boss.w / 2, boss.minX, boss.maxX - boss.w);
+  boss.y = bottomY - boss.h;
+  return boss.h - previousHeight;
+}
+
+function getBossStompBounceSpeed(extraHeight) {
+  return Math.sqrt((BOSS_STOMP_BOUNCE_SPEED ** 2) + (2 * GRAVITY * Math.max(extraHeight, 0)));
+}
+
+function damageBoss(shouldGrow = false) {
+  const growthHeight = shouldGrow ? growBoss() : 0;
   boss.hp -= 1;
   boss.hurtTimer = 0.45;
-  spawnBurst(boss.x + boss.w / 2, boss.y + 18, "#facc15");
   flashMessage(boss.hp > 0 ? `${boss.hp} hit${boss.hp === 1 ? "" : "s"} left!` : "The boss is down. Rescue James!");
   if (boss.hp <= 0) {
+    spawnBossDefeatBurst();
     boss.defeated = true;
     boss.vx = 0;
     boss.y = GROUND_Y - 52;
     dropHeart();
+  } else {
+    spawnBurst(boss.x + boss.w / 2, boss.y + 18, "#facc15");
   }
+  return growthHeight;
+}
+
+function spawnBossDefeatBurst() {
+  const bossScale = Math.max(3, boss.h / 96);
+  spawnBurst(boss.x + boss.w / 2, boss.y + boss.h / 2, "#facc15", {
+    count: Math.round(84 * bossScale),
+    speedScale: bossScale * 0.68,
+    lifeScale: 1.85,
+    spreadX: boss.w * 0.45,
+    spreadY: boss.h * 0.38,
+  });
 }
 
 function dropHeart() {
@@ -806,7 +1071,10 @@ function updateJames(dt) {
       state.mode = "levelComplete";
       state.nextLevelTimer = 1.8;
     } else {
-      state.mode = "won";
+      state.monsterMultiplier *= 2;
+      startLevel(0, state.selected, Math.max(player.health, 1), player.attackUnlocked, player.sunCount);
+      state.mode = "playing";
+      flashMessage(`Round ${Math.log2(state.monsterMultiplier) + 1}: monsters x${state.monsterMultiplier}!`);
     }
   }
 }
@@ -825,8 +1093,9 @@ function updateCollectibles(dt) {
       flashMessage("Health increased!");
       spawnBurst(collectible.x + collectible.w / 2, collectible.y + collectible.h / 2, "#ef4444");
     } else if (collectible.type === "blackSun") {
+      player.sunCount += 1;
       player.attackUnlocked = true;
-      flashMessage("Black Sun collected. Press CTRL to attack!");
+      flashMessage(`Black Sun x${player.sunCount}. Press CTRL to attack!`);
       spawnBurst(collectible.x + collectible.w / 2, collectible.y + collectible.h / 2, "#111827");
     }
   }
@@ -853,6 +1122,21 @@ function isStomp(attacker, target) {
   return attacker.vy > 120 && attackerBottom - targetTop < 34;
 }
 
+function hitEnemy(enemy) {
+  if (enemy.type === "monsterboy") {
+    enemy.hp -= 1;
+    if (enemy.hp > 0) {
+      enemy.hurtTimer = 0.45;
+      player.vy = -360;
+      spawnBurst(enemy.x + enemy.w / 2, enemy.y + 10, "#22c55e");
+      flashMessage("Monsterboy needs one more hit!");
+      return;
+    }
+  }
+
+  defeatEnemy(enemy);
+}
+
 function defeatEnemy(enemy) {
   enemy.defeated = true;
   enemy.hurtTimer = 0.8;
@@ -865,6 +1149,8 @@ function defeatEnemy(enemy) {
 
 function hurtPlayer(fell = false) {
   if (player.invincible > 0) return;
+  releaseLedgeGrab();
+  loseSun();
   player.health -= 1;
   player.invincible = 1.4;
   player.vx = fell ? 0 : -player.facing * 190;
@@ -877,6 +1163,12 @@ function hurtPlayer(fell = false) {
   }
 }
 
+function loseSun() {
+  if (player.sunCount <= 0) return;
+  player.sunCount -= 1;
+  player.attackUnlocked = player.sunCount > 0;
+}
+
 function startAttack() {
   if (!player?.attackUnlocked) {
     flashMessage("Find the Black Sun to unlock attack.");
@@ -886,10 +1178,29 @@ function startAttack() {
   player.attackTimer = 0.28;
   player.attackCooldown = 0.55;
   player.attackHasHit = false;
+  player.attackDirection = isPressingUp() ? "up" : "forward";
+}
+
+function isPressingUp() {
+  return keys.has("ArrowUp") || keys.has("KeyW");
+}
+
+function isPressingDown() {
+  return keys.has("ArrowDown") || keys.has("KeyS");
 }
 
 function getAttackBox() {
-  const range = 74;
+  const sunMultiplier = Math.max(player.sunCount, 1);
+  const range = 74 * sunMultiplier;
+  if (player.attackDirection === "up") {
+    return {
+      x: player.x + player.w / 2 - 34,
+      y: player.y - range + 18,
+      w: 68,
+      h: range,
+    };
+  }
+
   return {
     x: player.facing > 0 ? player.x + player.w - 4 : player.x - range + 4,
     y: player.y + 16,
@@ -909,14 +1220,22 @@ function getLevelIntroMessage() {
   return `${level.name}: rescue James!`;
 }
 
-function spawnBurst(x, y, color) {
-  for (let i = 0; i < 12; i += 1) {
+function spawnBurst(x, y, color, options = {}) {
+  const count = options.count || 12;
+  const speedScale = options.speedScale || 1;
+  const lifeScale = options.lifeScale || 1;
+  const spreadX = options.spreadX || 0;
+  const spreadY = options.spreadY || 0;
+
+  for (let i = 0; i < count; i += 1) {
+    const originX = x + random(-spreadX, spreadX);
+    const originY = y + random(-spreadY, spreadY);
     particles.push({
-      x,
-      y,
-      vx: Math.cos((Math.PI * 2 * i) / 12) * random(70, 150),
-      vy: Math.sin((Math.PI * 2 * i) / 12) * random(70, 150),
-      life: random(0.35, 0.75),
+      x: originX,
+      y: originY,
+      vx: Math.cos((Math.PI * 2 * i) / count) * random(70, 150) * speedScale,
+      vy: Math.sin((Math.PI * 2 * i) / count) * random(70, 150) * speedScale,
+      life: random(0.35, 0.75) * lifeScale,
       color,
     });
   }
@@ -1141,15 +1460,22 @@ function drawFlag(x, text) {
   ctx.fillStyle = "#fde047";
   ctx.fillRect(x + 8, GROUND_Y - 76, 78, 34);
   ctx.fillStyle = "#111827";
-  ctx.font = "bold 15px Arial";
+  ctx.font = canvasFont(800, 15);
   ctx.fillText(text, x + 16, GROUND_Y - 54);
 }
 
 function drawPlayer() {
   const blinking = player.invincible > 0 && Math.floor(player.invincible * 16) % 2 === 0;
   if (blinking) return;
-  const animation = player.attackTimer > 0 ? "attack" : player.grounded ? (Math.abs(player.vx) > 18 ? "walk" : "idle") : "jump";
-  drawEntity(player, player.character, animation, player.x - 10, player.y - 6, player.w + 20, player.h + 6, player.facing);
+  let animation = player.attackTimer > 0 ? "attack" : player.grounded ? (Math.abs(player.vx) > 18 ? "walk" : "idle") : "jump";
+  let drawYOffset = 0;
+  if (player.character === "mark" && player.ledgeGrab && !player.climbing) {
+    animation = "jump";
+    drawYOffset = 8;
+  } else if (player.character === "mark" && player.climbing) {
+    animation = "walk";
+  }
+  drawEntity(player, player.character, animation, player.x - 10, player.y - 6 + drawYOffset, player.w + 20, player.h + 6, player.facing);
 }
 
 function drawAttack() {
@@ -1210,10 +1536,10 @@ function drawEnemies() {
       "chomper",
       enemy.defeated ? "defeated" : "walk",
       enemy.x - 10,
-      enemy.y - 6,
+      enemy.y - 6 - CHOMPER_HITBOX_Y_OFFSET,
       enemy.w + 24,
       enemy.h + 26,
-      enemy.vx < 0 ? -1 : 1,
+      enemy.vx < 0 ? 1 : -1,
     );
   }
 }
@@ -1298,28 +1624,28 @@ function drawHud() {
   ctx.fillStyle = "rgba(15, 23, 42, 0.76)";
   ctx.fillRect(18, 16, 328, 72);
   ctx.fillStyle = "#f8fafc";
-  ctx.font = "bold 22px Arial";
+  ctx.font = canvasFont(800, 22);
   ctx.fillText(`Hero: ${capitalize(state.selected)}  L${state.levelIndex + 1}`, 34, 44);
-  ctx.font = "18px Arial";
+  ctx.font = canvasFont(700, 18);
   ctx.fillText(`Health: ${"I ".repeat(Math.max(player?.health || 0, 0)).trim()}`, 34, 72);
   if (player?.attackUnlocked) {
     ctx.fillStyle = "#c4b5fd";
-    ctx.fillText("CTRL attack ready", 146, 72);
+    ctx.fillText(`CTRL attack x${player.sunCount}`, 146, 72);
   }
 
   ctx.fillStyle = "rgba(15, 23, 42, 0.76)";
   ctx.fillRect(WIDTH - 328, 16, 310, 72);
   ctx.fillStyle = "#f8fafc";
-  ctx.font = "bold 18px Arial";
+  ctx.font = canvasFont(800, 18);
   ctx.fillText("Objective", WIDTH - 310, 44);
-  ctx.font = "16px Arial";
+  ctx.font = canvasFont(700, 16);
   ctx.fillText(boss?.defeated ? "Reach James!" : `${level.name}: stomp the boss.`, WIDTH - 310, 70);
 
   if (state.messageTimer > 0) {
     ctx.fillStyle = "rgba(15, 23, 42, 0.84)";
     ctx.fillRect(WIDTH / 2 - 230, 104, 460, 44);
     ctx.fillStyle = "#fde047";
-    ctx.font = "bold 18px Arial";
+    ctx.font = canvasFont(800, 18);
     ctx.textAlign = "center";
     ctx.fillText(state.message, WIDTH / 2, 132);
     ctx.textAlign = "left";
@@ -1331,13 +1657,13 @@ function drawCharacterSelect() {
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
   ctx.fillStyle = "#f8fafc";
   ctx.textAlign = "center";
-  ctx.font = "bold 44px Arial";
-  ctx.fillText("Choose Your Hero", WIDTH / 2, 96);
-  ctx.font = "20px Arial";
-  ctx.fillText("Click a character, or press M for Mark and A for Maria.", WIDTH / 2, 132);
+  ctx.font = canvasFont(800, 36);
+  ctx.fillText("Choose Your Hero", WIDTH / 2, 104);
+  ctx.font = canvasFont(700, 18);
+  ctx.fillText("Click a character, or press M for Mark and A for Maria.", WIDTH / 2, 142);
 
-  drawCharacterCard("mark", WIDTH / 2 - 250, 185);
-  drawCharacterCard("maria", WIDTH / 2 + 70, 185);
+  drawCharacterCard("mark", WIDTH / 2 - 250, 190);
+  drawCharacterCard("maria", WIDTH / 2 + 70, 190);
   ctx.textAlign = "left";
 }
 
@@ -1352,11 +1678,11 @@ function drawCharacterCard(character, x, y) {
   const fakeEntity = { animTime: performance.now() / 1000 };
   drawEntity(fakeEntity, character, "idle", x + 55, y + 36, 70, 112, 1);
   ctx.fillStyle = "#f8fafc";
-  ctx.font = "bold 28px Arial";
+  ctx.font = canvasFont(800, 28);
   ctx.textAlign = "center";
   ctx.fillText(capitalize(character), x + 90, y + 178);
-  ctx.font = "16px Arial";
-  ctx.fillText(character === "mark" ? "Quick and steady" : "Light and nimble", x + 90, y + 206);
+  ctx.font = canvasFont(700, 16);
+  ctx.fillText(character === "mark" ? "Grabs ledges to climb up" : "Light and nimble", x + 90, y + 206);
 }
 
 function drawPanel(title, line1, line2) {
@@ -1364,9 +1690,9 @@ function drawPanel(title, line1, line2) {
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
   ctx.fillStyle = "#f8fafc";
   ctx.textAlign = "center";
-  ctx.font = "bold 48px Arial";
+  ctx.font = canvasFont(850, 52, TITLE_FONT);
   ctx.fillText(title, WIDTH / 2, HEIGHT / 2 - 54);
-  ctx.font = "22px Arial";
+  ctx.font = canvasFont(700, 22);
   ctx.fillText(line1, WIDTH / 2, HEIGHT / 2 - 12);
   if (line2) ctx.fillText(line2, WIDTH / 2, HEIGHT / 2 + 28);
   ctx.textAlign = "left";
@@ -1392,6 +1718,10 @@ function capitalize(value) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+function canvasFont(weight, size, family = UI_FONT) {
+  return `${weight} ${size}px ${family}`;
+}
+
 function selectCharacter(character) {
   resetGame(character);
   state.mode = "playing";
@@ -1413,7 +1743,7 @@ function startDebugLevel(levelNumber) {
 
 window.addEventListener("keydown", (event) => {
   keys.add(event.code);
-  if (["ArrowLeft", "ArrowRight", "ArrowUp", "Space", "ControlLeft", "ControlRight"].includes(event.code)) {
+  if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "ControlLeft", "ControlRight"].includes(event.code)) {
     event.preventDefault();
   }
 
@@ -1450,8 +1780,8 @@ canvas.addEventListener("click", (event) => {
   const y = (event.clientY - rect.top) * scaleY;
 
   const cards = [
-    { character: "mark", x: WIDTH / 2 - 250, y: 185, w: 180, h: 230 },
-    { character: "maria", x: WIDTH / 2 + 70, y: 185, w: 180, h: 230 },
+    { character: "mark", x: WIDTH / 2 - 250, y: 190, w: 180, h: 230 },
+    { character: "maria", x: WIDTH / 2 + 70, y: 190, w: 180, h: 230 },
   ];
   const card = cards.find((candidate) => x >= candidate.x && x <= candidate.x + candidate.w && y >= candidate.y && y <= candidate.y + candidate.h);
   if (card) selectCharacter(card.character);
