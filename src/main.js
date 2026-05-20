@@ -1398,6 +1398,19 @@ function selectCharacter(character) {
   flashMessage(`Go, ${capitalize(character)}! Rescue James.`);
 }
 
+function getHotkeyLevelNumber(code) {
+  const match = code.match(/^(?:Digit|Numpad)([1-9])$/);
+  return match ? Number(match[1]) : null;
+}
+
+function startDebugLevel(levelNumber) {
+  if (levelNumber < 1 || levelNumber > levels.length) return false;
+  startLevel(levelNumber - 1, state.selected, 3, false);
+  state.mode = "playing";
+  flashMessage(`Debug jump: ${level.name}`);
+  return true;
+}
+
 window.addEventListener("keydown", (event) => {
   keys.add(event.code);
   if (["ArrowLeft", "ArrowRight", "ArrowUp", "Space", "ControlLeft", "ControlRight"].includes(event.code)) {
@@ -1409,6 +1422,10 @@ window.addEventListener("keydown", (event) => {
   }
 
   if (state.mode === "select") {
+    if (event.ctrlKey && event.altKey && event.shiftKey && startDebugLevel(getHotkeyLevelNumber(event.code))) {
+      event.preventDefault();
+      return;
+    }
     if (event.code === "KeyM") selectCharacter("mark");
     if (event.code === "KeyA") selectCharacter("maria");
     if (event.code === "Enter") selectCharacter(state.selected);
