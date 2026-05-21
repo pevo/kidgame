@@ -34,6 +34,15 @@ const keys = new Set();
 const images = {};
 const camera = { x: 0 };
 
+const IS_TOUCH = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+const TOUCH_BTNS = [
+  { id: "left",   key: "ArrowLeft",   x: 56,  y: 496, r: 42, label: "◀" },
+  { id: "right",  key: "ArrowRight",  x: 156, y: 496, r: 42, label: "▶" },
+  { id: "jump",   key: "Space",       x: 806, y: 496, r: 42, label: "▲" },
+  { id: "attack", key: "ControlLeft", x: 906, y: 496, r: 42, label: "⚡" },
+];
+let touchPressedKeys = new Set();
+
 const assets = {
   characters: "assets/sprites/characters.png",
   chomper: "assets/sprites/chomper.png",
@@ -568,6 +577,8 @@ function startLevel(levelIndex, character = state.selected, health = 3, attackUn
     w: bossStats.w,
     h: bossStats.h,
     vx: -42,
+    vy: 0,
+    jumpTimer: 7,
     minX: level.boss.minX,
     maxX: level.boss.maxX,
     hp: level.boss.hp || bossStats.hp,
@@ -1229,6 +1240,19 @@ function updateBoss(dt) {
     tryClubSwing(boss, 106, 70, 0.5, 0.14);
   }
 
+  boss.jumpTimer -= dt;
+  const onGround = boss.y + boss.h >= GROUND_Y - 2;
+  if (boss.jumpTimer <= 0 && onGround) {
+    boss.vy = -660;
+    boss.jumpTimer = 7;
+  }
+  boss.vy += GRAVITY * dt;
+  boss.y += boss.vy * dt;
+  if (boss.y + boss.h >= GROUND_Y) {
+    boss.y = GROUND_Y - boss.h;
+    boss.vy = 0;
+  }
+
   boss.x += boss.vx * dt;
   if (boss.x < boss.minX || boss.x + boss.w > boss.maxX) {
     boss.vx *= -1;
@@ -1237,13 +1261,25 @@ function updateBoss(dt) {
 
   if (intersects(player, boss)) {
     if (isStomp(player, boss)) {
+      const extraHeight = boss.type !== "ogreboss" ? growBoss() : 0;
       damageBoss();
       player.y = Math.min(player.y, boss.y - player.h - 2);
-      player.vy = -BOSS_STOMP_BOUNCE_SPEED;
+      player.vy = -Math.sqrt(BOSS_STOMP_BOUNCE_SPEED ** 2 + 2 * GRAVITY * Math.max(extraHeight, 0));
     } else {
       hurtPlayer();
     }
   }
+}
+
+function growBoss() {
+  const centerX = boss.x + boss.w / 2;
+  const bottomY = boss.y + boss.h;
+  const prevH = boss.h;
+  boss.w *= 1.5;
+  boss.h *= 1.5;
+  boss.x = clamp(centerX - boss.w / 2, boss.minX, boss.maxX - boss.w);
+  boss.y = bottomY - boss.h;
+  return boss.h - prevH;
 }
 
 function damageBoss() {
@@ -1528,6 +1564,30 @@ function drawWorld() {
   ctx.restore();
 
   drawHud();
+  if (IS_TOUCH && state.mode === "playing") drawTouchOverlay();
+}
+
+function drawTouchOverlay() {
+  for (const btn of TOUCH_BTNS) {
+    if (btn.id === "attack" && !player?.attackUnlocked) continue;
+    const pressed = keys.has(btn.key);
+    ctx.save();
+    ctx.globalAlpha = pressed ? 0.72 : 0.38;
+    ctx.fillStyle = pressed ? "#fde68a" : "#1e293b";
+    ctx.beginPath();
+    ctx.arc(btn.x, btn.y, btn.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = pressed ? "#fbbf24" : "rgba(248,250,252,0.55)";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.globalAlpha = pressed ? 1 : 0.75;
+    ctx.fillStyle = pressed ? "#1e293b" : "#f8fafc";
+    ctx.font = canvasFont(800, 22);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(btn.label, btn.x, btn.y);
+    ctx.restore();
+  }
 }
 
 function drawSky() {
@@ -2189,13 +2249,15 @@ window.addEventListener("keyup", (event) => {
   keys.delete(event.code);
 });
 
-canvas.addEventListener("click", (event) => {
+function canvasCoordsFromClient(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
-  const scaleX = WIDTH / rect.width;
-  const scaleY = HEIGHT / rect.height;
-  const x = (event.clientX - rect.left) * scaleX;
-  const y = (event.clientY - rect.top) * scaleY;
+  return {
+    x: (clientX - rect.left) * (WIDTH / rect.width),
+    y: (clientY - rect.top) * (HEIGHT / rect.height),
+  };
+}
 
+function handleCanvasTap(x, y) {
   if (state.mode === "lost") {
     const button = getPlayAgainButtonBounds();
     if (x >= button.x && x <= button.x + button.w && y >= button.y && y <= button.y + button.h) {
@@ -2204,16 +2266,50 @@ canvas.addEventListener("click", (event) => {
     }
     return;
   }
-
   if (state.mode !== "select") return;
-
   const cards = [
     { character: "mark", x: WIDTH / 2 - 250, y: 190, w: 180, h: 230 },
     { character: "maria", x: WIDTH / 2 + 70, y: 190, w: 180, h: 230 },
   ];
-  const card = cards.find((candidate) => x >= candidate.x && x <= candidate.x + candidate.w && y >= candidate.y && y <= candidate.y + candidate.h);
+  const card = cards.find((c) => x >= c.x && x <= c.x + c.w && y >= c.y && y <= c.y + c.h);
   if (card) selectCharacter(card.character);
+}
+
+canvas.addEventListener("click", (event) => {
+  const { x, y } = canvasCoordsFromClient(event.clientX, event.clientY);
+  handleCanvasTap(x, y);
 });
+
+function applyTouches(event) {
+  event.preventDefault();
+  const prevAttack = touchPressedKeys.has("ControlLeft");
+  const nowPressed = new Set();
+  for (const t of event.touches) {
+    const { x, y } = canvasCoordsFromClient(t.clientX, t.clientY);
+    for (const btn of TOUCH_BTNS) {
+      const dx = x - btn.x, dy = y - btn.y;
+      if (dx * dx + dy * dy <= btn.r * btn.r) nowPressed.add(btn.key);
+    }
+  }
+  for (const btn of TOUCH_BTNS) {
+    if (nowPressed.has(btn.key)) keys.add(btn.key);
+    else keys.delete(btn.key);
+  }
+  if (nowPressed.has("ControlLeft") && !prevAttack && state.mode === "playing") startAttack();
+  touchPressedKeys = nowPressed;
+}
+
+canvas.addEventListener("touchstart", applyTouches, { passive: false });
+canvas.addEventListener("touchmove", applyTouches, { passive: false });
+canvas.addEventListener("touchcancel", applyTouches, { passive: false });
+canvas.addEventListener("touchend", (event) => {
+  if (event.changedTouches.length > 0 && state.mode !== "playing") {
+    const t = event.changedTouches[0];
+    const { x, y } = canvasCoordsFromClient(t.clientX, t.clientY);
+    handleCanvasTap(x, y);
+  }
+  applyTouches(event);
+}, { passive: false });
 
 fullscreenButton?.addEventListener("click", () => {
   if (document.fullscreenElement) {
