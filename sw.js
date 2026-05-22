@@ -1,4 +1,4 @@
-const CACHE = "rescue-james-v1";
+const CACHE = "rescue-james-v2";
 
 const PRECACHE = [
   "./",
@@ -13,6 +13,8 @@ const PRECACHE = [
   "./assets/sprites/monsterboy.png",
   "./assets/sprites/ogrebaby.png",
   "./assets/sprites/ogreboss.png",
+  "./assets/sprites/coin.png",
+  "./assets/sprites/heartblacksun.png",
   "./assets/icons/icon-180.png",
   "./assets/icons/icon-512.png",
 ];

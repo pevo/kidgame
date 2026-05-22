@@ -897,9 +897,12 @@ function updatePlayer(dt) {
   }
   player.vx = clamp(player.vx, -maxSpeed, maxSpeed);
 
-  if (jumping && player.grounded && !player.ducking) {
-    player.vy = player.character === "maria" ? -575 * 1.3 : -575;
-    player.grounded = false;
+  if (jumping && player.grounded) {
+    if (player.ducking) updatePlayerDucking(false);
+    if (!player.ducking) {
+      player.vy = player.character === "maria" ? -575 * 1.3 : -575;
+      player.grounded = false;
+    }
   }
 
   player.vy += GRAVITY * dt;
@@ -2288,13 +2291,12 @@ function drawWinScreen() {
   ctx.font = canvasFont(800, 12);
   ctx.fillText("Signed: James  |  Expires: Never  |  Valid: Now", cx, cy + ch / 2 - 14);
 
-  // Play again button
-  const btn = getPlayAgainButtonBounds();
+  const btn = getWinPlayAgainButtonBounds();
   ctx.fillStyle = "rgba(250, 204, 21, 0.94)";
   drawRoundRect(btn.x, btn.y, btn.w, btn.h, 16);
   ctx.fillStyle = "#111827";
-  ctx.font = canvasFont(800, 20);
-  ctx.fillText("Play Again", btn.x + btn.w / 2, btn.y + 31);
+  ctx.font = canvasFont(800, 18);
+  ctx.fillText("Use Coupon & Play Again", btn.x + btn.w / 2, btn.y + 31);
 
   ctx.textAlign = "left";
 }
@@ -2304,6 +2306,15 @@ function getPlayAgainButtonBounds() {
     x: WIDTH / 2 - 82,
     y: HEIGHT / 2 + 168,
     w: 164,
+    h: 48,
+  };
+}
+
+function getWinPlayAgainButtonBounds() {
+  return {
+    x: WIDTH / 2 - 168,
+    y: HEIGHT / 2 + 168,
+    w: 336,
     h: 48,
   };
 }
@@ -2350,13 +2361,24 @@ function selectCharacter(character) {
   flashMessage(`Go, ${capitalize(character)}! Rescue James.`);
 }
 
+// return hotkey number, else -1
 function getHotkeyLevelNumber(code) {
-  const match = code.match(/^(?:Digit|Numpad)([1-9])$/);
-  return match ? Number(match[1]) : null;
+  const match = code.match(/^(?:Digit|Numpad)([0-9])$/);
+  return (match === null) ? -1 : (Number(match[1])>=0 ? Number(match[1]) : -1);
 }
 
+// if level number is zero, display the win screen
+// else, select the level
 function startDebugLevel(levelNumber) {
-  if (levelNumber < 1 || levelNumber > levels.length) return false;
+  if (levelNumber === 0)
+  {
+    startLevel(levels.length - 1, state.selected, 3, false);
+    state.mode = "playing";
+    flashMessage(`Debug win: ${level.name}`);
+    state.mode = "won";
+    return true;    
+  }
+  else if (levelNumber < 1 || levelNumber > levels.length) return false;
   startLevel(levelNumber - 1, state.selected, 3, false);
   state.mode = "playing";
   flashMessage(`Debug jump: ${level.name}`);
@@ -2409,7 +2431,7 @@ function handleCanvasTap(x, y) {
   }
   if (state.mode === "won") {
     if (performance.now() < state.wonInputReadyAt) return;
-    const button = getPlayAgainButtonBounds();
+    const button = getWinPlayAgainButtonBounds();
     if (x >= button.x && x <= button.x + button.w && y >= button.y && y <= button.y + button.h) {
       state.monsterMultiplier *= 2;
       startLevel(0, state.selected, Math.max(player.health, 1), player.attackUnlocked, player.sunCount);
@@ -2443,7 +2465,7 @@ function applyTouches(event) {
       if (ddx < -DPAD_DEAD_ZONE) nowPressed.add("ArrowLeft");
       if (ddx >  DPAD_DEAD_ZONE) nowPressed.add("ArrowRight");
       if (ddy < -DPAD_DEAD_ZONE) nowPressed.add("ArrowUp");
-      if (ddy >  DPAD_DEAD_ZONE) nowPressed.add("ArrowDown");
+      if (ddy >  DPAD_DEAD_ZONE && ddy > Math.abs(ddx) * 0.7) nowPressed.add("ArrowDown");
     } else {
       for (const btn of TOUCH_BTNS) {
         if (DPAD_IDS.has(btn.id)) continue;
