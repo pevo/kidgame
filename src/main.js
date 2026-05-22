@@ -36,10 +36,12 @@ const camera = { x: 0 };
 
 const IS_TOUCH = "ontouchstart" in window || navigator.maxTouchPoints > 0;
 const TOUCH_BTNS = [
-  { id: "left",   key: "ArrowLeft",   x: 56,  y: 496, r: 42, label: "◀" },
-  { id: "right",  key: "ArrowRight",  x: 156, y: 496, r: 42, label: "▶" },
-  { id: "jump",   key: "Space",       x: 806, y: 496, r: 42, label: "▲" },
-  { id: "attack", key: "ControlLeft", x: 906, y: 496, r: 42, label: "⚡" },
+  { id: "up",     key: "ArrowUp",     x: 106, y: 420, r: 32, label: "▲", fontSize: 17 },
+  { id: "left",   key: "ArrowLeft",   x: 58,  y: 468, r: 32, label: "◀", fontSize: 17 },
+  { id: "right",  key: "ArrowRight",  x: 154, y: 468, r: 32, label: "▶", fontSize: 17 },
+  { id: "down",   key: "ArrowDown",   x: 106, y: 508, r: 32, label: "▼", fontSize: 17 },
+  { id: "jump",   key: "Space",       x: 806, y: 470, r: 42, label: "▲", fontSize: 22 },
+  { id: "attack", key: "ControlLeft", x: 906, y: 470, r: 42, label: "⚡", fontSize: 22 },
 ];
 let touchPressedKeys = new Set();
 
@@ -1569,10 +1571,10 @@ function drawWorld() {
 
 function drawTouchOverlay() {
   for (const btn of TOUCH_BTNS) {
-    if (btn.id === "attack" && !player?.attackUnlocked) continue;
+    const attackUnavailable = btn.id === "attack" && !player?.attackUnlocked;
     const pressed = keys.has(btn.key);
     ctx.save();
-    ctx.globalAlpha = pressed ? 0.72 : 0.38;
+    ctx.globalAlpha = attackUnavailable ? 0.1 : pressed ? 0.72 : 0.38;
     ctx.fillStyle = pressed ? "#fde68a" : "#1e293b";
     ctx.beginPath();
     ctx.arc(btn.x, btn.y, btn.r, 0, Math.PI * 2);
@@ -1580,9 +1582,9 @@ function drawTouchOverlay() {
     ctx.strokeStyle = pressed ? "#fbbf24" : "rgba(248,250,252,0.55)";
     ctx.lineWidth = 2.5;
     ctx.stroke();
-    ctx.globalAlpha = pressed ? 1 : 0.75;
+    ctx.globalAlpha = attackUnavailable ? 0.12 : pressed ? 1 : 0.75;
     ctx.fillStyle = pressed ? "#1e293b" : "#f8fafc";
-    ctx.font = canvasFont(800, 22);
+    ctx.font = canvasFont(800, btn.fontSize);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(btn.label, btn.x, btn.y);
