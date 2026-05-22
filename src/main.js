@@ -66,6 +66,7 @@ const state = {
   score: 0,
   highScore: loadHighScore(),
   newHighScore: false,
+  wonInputReadyAt: 0,
   messageTimer: 0,
   nextLevelTimer: 0,
   lastTime: 0,
@@ -538,6 +539,7 @@ function resetGame(character = state.selected) {
   state.monsterMultiplier = 1;
   state.score = 0;
   state.newHighScore = false;
+  state.wonInputReadyAt = 0;
   startLevel(0, character, 3, false);
 }
 
@@ -1331,6 +1333,7 @@ function updateJames(dt) {
       state.nextLevelTimer = 1.8;
     } else {
       state.mode = "won";
+      state.wonInputReadyAt = performance.now() + 450;
     }
   }
 }
@@ -2295,13 +2298,6 @@ window.addEventListener("keydown", (event) => {
     startAttack();
   }
 
-  if (state.mode === "won" && event.code === "Enter") {
-    state.monsterMultiplier *= 2;
-    startLevel(0, state.selected, Math.max(player.health, 1), player.attackUnlocked, player.sunCount);
-    state.mode = "playing";
-    flashMessage(`Round ${Math.log2(state.monsterMultiplier) + 1}: monsters x${state.monsterMultiplier}!`);
-  }
-
   if (state.mode === "select") {
     if (event.ctrlKey && event.altKey && event.shiftKey && startDebugLevel(getHotkeyLevelNumber(event.code))) {
       event.preventDefault();
@@ -2337,6 +2333,7 @@ function handleCanvasTap(x, y) {
     return;
   }
   if (state.mode === "won") {
+    if (performance.now() < state.wonInputReadyAt) return;
     const button = getPlayAgainButtonBounds();
     if (x >= button.x && x <= button.x + button.w && y >= button.y && y <= button.y + button.h) {
       state.monsterMultiplier *= 2;
