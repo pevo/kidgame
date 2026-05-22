@@ -152,6 +152,13 @@ canvas {
   letter-spacing: 0.12em;
 }
 
+.git-commit {
+  margin-left: 8px;
+  color: rgba(148, 163, 184, 0.52);
+  font-size: 0.5rem;
+  letter-spacing: 0.08em;
+}
+
 @media (max-width: 760px) {
   .game-shell {
     padding: 14px;

@@ -27,6 +27,7 @@ const LEDGE_CLIMB_DURATION = 0.34;
 const LEDGE_RELEASE_GAP = 2;
 const FLASH_MESSAGE_DURATION = 1.8;
 const HIGH_SCORE_KEY = "rescueJamesHighScore";
+const APP_COMMIT = "5550635";
 const TITLE_FONT = '"Fraunces", Georgia, serif';
 const UI_FONT = '"Nunito", "Trebuchet MS", sans-serif';
 
@@ -56,6 +57,8 @@ const assets = {
   monsterboy: "assets/sprites/monsterboy.png",
   ogrebaby: "assets/sprites/ogrebaby.png",
   ogreboss: "assets/sprites/ogreboss.png",
+  coin: "assets/sprites/coin.png",
+  heartBlackSun: "assets/sprites/heartblacksun.png",
 };
 
 const state = {
@@ -352,6 +355,53 @@ sprites.ogreboss = {
 };
 sprites.ogreboss.run = sprites.ogreboss.walk;
 
+sprites.coin = {
+  sheet: "coin",
+  spin: [
+    { x: 42, y: 456, w: 90, h: 120 },
+    { x: 195, y: 456, w: 59, h: 120 },
+    { x: 333, y: 456, w: 36, h: 120 },
+    { x: 454, y: 456, w: 25, h: 120 },
+    { x: 569, y: 456, w: 31, h: 120 },
+    { x: 698, y: 456, w: 37, h: 120 },
+    { x: 830, y: 456, w: 73, h: 120 },
+    { x: 980, y: 456, w: 78, h: 120 },
+    { x: 1129, y: 456, w: 75, h: 120 },
+    { x: 1273, y: 456, w: 71, h: 120 },
+    { x: 1406, y: 456, w: 80, h: 120 },
+  ],
+};
+
+sprites.heart = {
+  sheet: "heartBlackSun",
+  idle: [
+    { x: 67, y: 154, w: 64, h: 113 },
+    { x: 216, y: 154, w: 72, h: 113 },
+    { x: 381, y: 154, w: 63, h: 113 },
+    { x: 544, y: 154, w: 72, h: 113 },
+    { x: 697, y: 154, w: 69, h: 113 },
+    { x: 845, y: 154, w: 64, h: 113 },
+    { x: 1005, y: 154, w: 71, h: 113 },
+    { x: 1148, y: 154, w: 70, h: 113 },
+    { x: 1301, y: 154, w: 72, h: 113 },
+  ],
+};
+
+sprites.blackSun = {
+  sheet: "heartBlackSun",
+  idle: [
+    { x: 54, y: 531, w: 105, h: 140 },
+    { x: 209, y: 531, w: 109, h: 140 },
+    { x: 366, y: 531, w: 107, h: 140 },
+    { x: 516, y: 531, w: 117, h: 140 },
+    { x: 681, y: 531, w: 102, h: 140 },
+    { x: 829, y: 531, w: 124, h: 140 },
+    { x: 996, y: 531, w: 105, h: 140 },
+    { x: 1143, y: 531, w: 119, h: 140 },
+    { x: 1302, y: 531, w: 102, h: 140 },
+  ],
+};
+
 const levels = [
   {
     name: "Meadow Rescue",
@@ -377,6 +427,13 @@ const levels = [
       { type: "chomper", x: 1710, y: 350 - CHOMPER_FEET_OFFSET, minX: 1540, maxX: 1750 },
       { type: "chomper", x: 2210, y: 390 - CHOMPER_FEET_OFFSET, minX: 1990, maxX: 2270 },
       { type: "chomper", x: 2680, y: GROUND_Y - CHOMPER_FEET_OFFSET, minX: 2470, maxX: 2830 },
+    ],
+    collectibles: [
+      { type: "coin", x: 510, y: 348 },
+      { type: "coin", x: 870, y: 282 },
+      { type: "coin", x: 1290, y: 360 },
+      { type: "coin", x: 2110, y: 348 },
+      { type: "coin", x: 2540, y: 286 },
     ],
     boss: { x: 3110, minX: 3000, maxX: 3260 },
     jamesX: 3440,
@@ -412,7 +469,12 @@ const levels = [
       { type: "ghostBoy", x: 3400, y: 248 },
     ],
     collectibles: [
+      { type: "coin", x: 470, y: 352 },
+      { type: "coin", x: 880, y: 288 },
       { type: "blackSun", x: 1580, y: 260 },
+      { type: "coin", x: 2120, y: 358 },
+      { type: "coin", x: 2570, y: 294 },
+      { type: "coin", x: 3010, y: 344 },
     ],
     boss: { x: 3750, minX: 3640, maxX: 3920 },
     jamesX: 4120,
@@ -449,8 +511,15 @@ const levels = [
       { type: "ghostBoy", x: 3850, y: 254 },
     ],
     collectibles: [
+      { type: "coin", x: 440, y: 344 },
       { type: "heart", x: 820, y: 272 },
+      { type: "coin", x: 1240, y: 356 },
+      { type: "coin", x: 1660, y: 296 },
+      { type: "coin", x: 2110, y: 350 },
       { type: "blackSun", x: 2470, y: 276 },
+      { type: "coin", x: 2960, y: 346 },
+      { type: "coin", x: 3400, y: 288 },
+      { type: "coin", x: 3830, y: 358 },
     ],
     boss: { x: 4250, minX: 4120, maxX: 4460 },
     jamesX: 4670,
@@ -490,8 +559,16 @@ const levels = [
       { type: "chomper", x: 4670, y: 330 - CHOMPER_FEET_OFFSET, minX: 4560, maxX: 4810 },
     ],
     collectibles: [
+      { type: "coin", x: 460, y: 350 },
+      { type: "coin", x: 890, y: 280 },
+      { type: "coin", x: 1340, y: 358 },
       { type: "heart", x: 1820, y: 286 },
+      { type: "coin", x: 2260, y: 350 },
+      { type: "coin", x: 2740, y: 286 },
+      { type: "coin", x: 3220, y: 346 },
       { type: "blackSun", x: 3640, y: 272 },
+      { type: "coin", x: 4160, y: 356 },
+      { type: "coin", x: 4620, y: 288 },
     ],
     boss: { type: "ogreboss", x: 5000, minX: 4860, maxX: 5300, hp: 4 },
     jamesX: 5430,
@@ -653,15 +730,16 @@ function spreadOffset(index, total, spacing) {
 }
 
 function makeCollectible(type, x, y) {
+  const size = type === "heart" ? { w: 30, h: 28 } : type === "coin" ? { w: 32, h: 32 } : { w: 44, h: 44 };
   return {
     type,
     x,
     y,
-    w: type === "heart" ? 30 : 44,
-    h: type === "heart" ? 28 : 44,
+    w: size.w,
+    h: size.h,
     baseY: y,
     picked: false,
-    animTime: 0,
+    animTime: Math.random() * 2,
   };
 }
 
@@ -1358,6 +1436,10 @@ function updateCollectibles(dt) {
       addScore(1000);
       flashMessage(`Black Sun x${player.sunCount}. Press CTRL to attack!`);
       spawnBurst(collectible.x + collectible.w / 2, collectible.y + collectible.h / 2, "#111827");
+    } else if (collectible.type === "coin") {
+      addScore(500);
+      flashMessage("+500");
+      spawnBurst(collectible.x + collectible.w / 2, collectible.y + collectible.h / 2, "#facc15");
     }
   }
 }
@@ -1498,6 +1580,15 @@ function saveHighScore(score) {
   } catch {
     // High score persistence is optional when storage is unavailable.
   }
+}
+
+function attachFooterCommit() {
+  const copyrightText = document.querySelector(".copyright-text");
+  if (!copyrightText) return;
+  const commitTag = document.createElement("span");
+  commitTag.className = "git-commit";
+  commitTag.textContent = `(${APP_COMMIT})`;
+  copyrightText.append(commitTag);
 }
 
 function getLevelIntroMessage() {
@@ -1823,51 +1914,35 @@ function drawSignposts() {
   drawFlag(level.flags.james, "James");
 }
 
+const COLLECTIBLE_SPRITE = {
+  heart:    { sprite: "heart",    anim: "idle", scale: 0.36, fps: 8 },
+  blackSun: { sprite: "blackSun", anim: "idle", scale: 0.40, fps: 7 },
+  coin:     { sprite: "coin",     anim: "spin", scale: 0.34, fps: 14 },
+};
+
 function drawCollectibles() {
   for (const collectible of collectibles) {
     if (collectible.picked) continue;
-    if (collectible.type === "heart") {
-      drawHeart(collectible.x + collectible.w / 2, collectible.y + collectible.h / 2, 1);
-    } else if (collectible.type === "blackSun") {
-      drawBlackSun(collectible.x + collectible.w / 2, collectible.y + collectible.h / 2, 1);
-    }
+    const cfg = COLLECTIBLE_SPRITE[collectible.type];
+    if (!cfg) continue;
+    drawCollectibleSprite(
+      cfg,
+      collectible.x + collectible.w / 2,
+      collectible.y + collectible.h / 2,
+      collectible.animTime,
+    );
   }
 }
 
-function drawHeart(x, y, scale) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(scale, scale);
-  ctx.fillStyle = "#ef4444";
-  ctx.beginPath();
-  ctx.moveTo(0, 12);
-  ctx.bezierCurveTo(-24, -6, -12, -24, 0, -10);
-  ctx.bezierCurveTo(12, -24, 24, -6, 0, 12);
-  ctx.fill();
-  ctx.fillStyle = "rgba(255,255,255,0.55)";
-  ctx.fillRect(-7, -12, 5, 4);
-  ctx.restore();
-}
-
-function drawBlackSun(x, y, scale) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(scale, scale);
-  ctx.strokeStyle = "#020617";
-  ctx.fillStyle = "#020617";
-  ctx.lineWidth = 4;
-  ctx.lineCap = "round";
-  for (let i = 0; i < 12; i += 1) {
-    const angle = (Math.PI * 2 * i) / 12;
-    ctx.beginPath();
-    ctx.moveTo(Math.cos(angle) * 18, Math.sin(angle) * 18);
-    ctx.lineTo(Math.cos(angle) * 29, Math.sin(angle) * 29);
-    ctx.stroke();
-  }
-  ctx.beginPath();
-  ctx.arc(0, 0, 15, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+function drawCollectibleSprite(cfg, cx, cy, animTime) {
+  const sprite = sprites[cfg.sprite];
+  const frames = sprite[cfg.anim];
+  const frame = frames[Math.floor(animTime * cfg.fps) % frames.length];
+  const image = images[sprite.sheet];
+  if (!image) return;
+  const drawW = Math.round(frame.w * cfg.scale);
+  const drawH = Math.round(frame.h * cfg.scale);
+  ctx.drawImage(image, frame.x, frame.y, frame.w, frame.h, Math.round(cx - drawW / 2), Math.round(cy - drawH / 2), drawW, drawH);
 }
 
 function drawFlag(x, text) {
@@ -2405,4 +2480,5 @@ fullscreenButton?.addEventListener("click", () => {
   }
 });
 
+attachFooterCommit();
 loadImages();
