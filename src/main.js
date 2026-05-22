@@ -795,7 +795,7 @@ function updatePlayer(dt) {
 
   const movingLeft = keys.has("ArrowLeft") || keys.has("KeyA");
   const movingRight = keys.has("ArrowRight") || keys.has("KeyD");
-  const jumping = keys.has("Space") || keys.has("ArrowUp") || keys.has("KeyW");
+  const jumping = keys.has("Space");
   const ducking = player.grounded && isPressingDown();
   updatePlayerDucking(ducking);
 
