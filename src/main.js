@@ -1330,10 +1330,7 @@ function updateJames(dt) {
       state.mode = "levelComplete";
       state.nextLevelTimer = 1.8;
     } else {
-      state.monsterMultiplier *= 2;
-      startLevel(0, state.selected, Math.max(player.health, 1), player.attackUnlocked, player.sunCount);
-      state.mode = "playing";
-      flashMessage(`Round ${Math.log2(state.monsterMultiplier) + 1}: monsters x${state.monsterMultiplier}!`);
+      state.mode = "won";
     }
   }
 }
@@ -1545,7 +1542,7 @@ function draw() {
     const nextLevel = levels[state.levelIndex + 1];
     drawPanel("James Is Safe!", `${nextLevel.name} is ahead.`, `Get ready for level ${state.levelIndex + 2}...`);
   } else if (state.mode === "won") {
-    drawPanel("James Rescued!", "You cleared all four levels and saved James.", "");
+    drawWinScreen();
   } else if (state.mode === "lost") {
     drawGameOverPanel();
   }
@@ -2164,10 +2161,70 @@ function drawGameOverPanel() {
   ctx.textAlign = "left";
 }
 
+function drawWinScreen() {
+  ctx.fillStyle = "rgba(10, 18, 36, 0.91)";
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+  ctx.textAlign = "center";
+
+  ctx.fillStyle = "#fde68a";
+  ctx.font = canvasFont(850, 48, TITLE_FONT);
+  ctx.fillText("Winner Winner", WIDTH / 2, 108);
+  ctx.fillStyle = "#fbbf24";
+  ctx.font = canvasFont(850, 54, TITLE_FONT);
+  ctx.fillText("Chicken Dinner!", WIDTH / 2, 168);
+
+  ctx.fillStyle = "rgba(248,250,252,0.72)";
+  ctx.font = canvasFont(600, 18);
+  ctx.fillText("James is safe. You cleared all the levels.", WIDTH / 2, 204);
+
+  // Coupon card
+  const cx = WIDTH / 2, cy = 320, cw = 580, ch = 170;
+  ctx.fillStyle = "#fefce8";
+  drawRoundRect(cx - cw / 2, cy - ch / 2, cw, ch, 14);
+
+  ctx.save();
+  ctx.strokeStyle = "#a16207";
+  ctx.lineWidth = 2;
+  ctx.setLineDash([8, 6]);
+  ctx.beginPath();
+  ctx.roundRect(cx - cw / 2 + 8, cy - ch / 2 + 8, cw - 16, ch - 16, 10);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  ctx.fillStyle = "#92400e";
+  ctx.font = canvasFont(800, 11);
+  ctx.fillText("✂  CLIP AND SAVE  ✂", cx, cy - ch / 2 + 22);
+
+  ctx.fillStyle = "#b45309";
+  ctx.font = canvasFont(850, 42, TITLE_FONT);
+  ctx.fillText("2-FOR-1 ENEMIES", cx, cy - 10);
+
+  ctx.fillStyle = "#78350f";
+  ctx.font = canvasFont(700, 15);
+  ctx.fillText("For every enemy encounter, get one absolutely free!", cx, cy + 16);
+  ctx.fillText("TODAY ONLY  ·  No rain checks  ·  Not valid in Ghost Grove", cx, cy + 56);
+
+  ctx.fillStyle = "#d97706";
+  ctx.font = canvasFont(800, 12);
+  ctx.fillText("Signed: James  |  Expires: Never  |  Valid: Now", cx, cy + ch / 2 - 14);
+
+  // Play again button
+  const btn = getPlayAgainButtonBounds();
+  ctx.fillStyle = "rgba(250, 204, 21, 0.94)";
+  drawRoundRect(btn.x, btn.y, btn.w, btn.h, 16);
+  ctx.fillStyle = "#111827";
+  ctx.font = canvasFont(800, 20);
+  ctx.fillText("Play Again", btn.x + btn.w / 2, btn.y + 31);
+
+  ctx.textAlign = "left";
+}
+
 function getPlayAgainButtonBounds() {
   return {
     x: WIDTH / 2 - 82,
-    y: HEIGHT / 2 + 38,
+    y: HEIGHT / 2 + 168,
     w: 164,
     h: 48,
   };
@@ -2238,6 +2295,13 @@ window.addEventListener("keydown", (event) => {
     startAttack();
   }
 
+  if (state.mode === "won" && event.code === "Enter") {
+    state.monsterMultiplier *= 2;
+    startLevel(0, state.selected, Math.max(player.health, 1), player.attackUnlocked, player.sunCount);
+    state.mode = "playing";
+    flashMessage(`Round ${Math.log2(state.monsterMultiplier) + 1}: monsters x${state.monsterMultiplier}!`);
+  }
+
   if (state.mode === "select") {
     if (event.ctrlKey && event.altKey && event.shiftKey && startDebugLevel(getHotkeyLevelNumber(event.code))) {
       event.preventDefault();
@@ -2269,6 +2333,16 @@ function handleCanvasTap(x, y) {
     if (x >= button.x && x <= button.x + button.w && y >= button.y && y <= button.y + button.h) {
       resetGame(state.selected);
       state.mode = "select";
+    }
+    return;
+  }
+  if (state.mode === "won") {
+    const button = getPlayAgainButtonBounds();
+    if (x >= button.x && x <= button.x + button.w && y >= button.y && y <= button.y + button.h) {
+      state.monsterMultiplier *= 2;
+      startLevel(0, state.selected, Math.max(player.health, 1), player.attackUnlocked, player.sunCount);
+      state.mode = "playing";
+      flashMessage(`Round ${Math.log2(state.monsterMultiplier) + 1}: monsters x${state.monsterMultiplier}!`);
     }
     return;
   }
