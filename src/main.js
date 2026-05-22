@@ -2284,8 +2284,8 @@ function drawWinScreen() {
 
   ctx.fillStyle = "#78350f";
   ctx.font = canvasFont(700, 15);
-  ctx.fillText("For every enemy encounter, get one absolutely free!", cx, cy + 16);
-  ctx.fillText("TODAY ONLY  ·  No rain checks  ·  Not valid in Ghost Grove", cx, cy + 56);
+  ctx.fillText("For each enemy, get one free!", cx, cy + 16);
+  ctx.fillText("TODAY ONLY  ·  Cannot be combined with other offers", cx, cy + 56);
 
   ctx.fillStyle = "#d97706";
   ctx.font = canvasFont(800, 12);
@@ -2464,8 +2464,8 @@ function applyTouches(event) {
     if (ddx * ddx + ddy * ddy <= DPAD_OUTER_R * DPAD_OUTER_R) {
       if (ddx < -DPAD_DEAD_ZONE) nowPressed.add("ArrowLeft");
       if (ddx >  DPAD_DEAD_ZONE) nowPressed.add("ArrowRight");
-      if (ddy < -DPAD_DEAD_ZONE) nowPressed.add("ArrowUp");
-      if (ddy >  DPAD_DEAD_ZONE && ddy > Math.abs(ddx) * 0.7) nowPressed.add("ArrowDown");
+      if (ddy < -DPAD_DEAD_ZONE && -ddy > Math.abs(ddx) * 0.7) nowPressed.add("ArrowUp");
+      if (ddy >  DPAD_DEAD_ZONE &&  ddy > Math.abs(ddx) * 0.7) nowPressed.add("ArrowDown");
     } else {
       for (const btn of TOUCH_BTNS) {
         if (DPAD_IDS.has(btn.id)) continue;
