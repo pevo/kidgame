@@ -27,7 +27,7 @@ const LEDGE_CLIMB_DURATION = 0.34;
 const LEDGE_RELEASE_GAP = 2;
 const FLASH_MESSAGE_DURATION = 1.8;
 const HIGH_SCORE_KEY = "rescueJamesHighScore";
-const APP_COMMIT = "5550635";
+const APP_COMMIT = "dev";
 const TITLE_FONT = '"Fraunces", Georgia, serif';
 const UI_FONT = '"Nunito", "Trebuchet MS", sans-serif';
 
