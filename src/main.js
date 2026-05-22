@@ -43,6 +43,10 @@ const TOUCH_BTNS = [
   { id: "jump",   key: "Space",       x: 806, y: 470, r: 42, label: "▲", fontSize: 22 },
   { id: "attack", key: "ControlLeft", x: 906, y: 470, r: 42, label: "⚡", fontSize: 22 },
 ];
+const DPAD_CENTER = { x: 106, y: 466 };
+const DPAD_OUTER_R = 82;
+const DPAD_DEAD_ZONE = 13;
+const DPAD_IDS = new Set(["up", "left", "right", "down"]);
 let touchPressedKeys = new Set();
 
 const assets = {
@@ -2288,9 +2292,18 @@ function applyTouches(event) {
   const nowPressed = new Set();
   for (const t of event.touches) {
     const { x, y } = canvasCoordsFromClient(t.clientX, t.clientY);
-    for (const btn of TOUCH_BTNS) {
-      const dx = x - btn.x, dy = y - btn.y;
-      if (dx * dx + dy * dy <= btn.r * btn.r) nowPressed.add(btn.key);
+    const ddx = x - DPAD_CENTER.x, ddy = y - DPAD_CENTER.y;
+    if (ddx * ddx + ddy * ddy <= DPAD_OUTER_R * DPAD_OUTER_R) {
+      if (ddx < -DPAD_DEAD_ZONE) nowPressed.add("ArrowLeft");
+      if (ddx >  DPAD_DEAD_ZONE) nowPressed.add("ArrowRight");
+      if (ddy < -DPAD_DEAD_ZONE) nowPressed.add("ArrowUp");
+      if (ddy >  DPAD_DEAD_ZONE) nowPressed.add("ArrowDown");
+    } else {
+      for (const btn of TOUCH_BTNS) {
+        if (DPAD_IDS.has(btn.id)) continue;
+        const bx = x - btn.x, by = y - btn.y;
+        if (bx * bx + by * by <= btn.r * btn.r) nowPressed.add(btn.key);
+      }
     }
   }
   for (const btn of TOUCH_BTNS) {
