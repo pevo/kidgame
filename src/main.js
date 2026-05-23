@@ -2681,6 +2681,7 @@ function enterEndlessRunner() {
   state.mode = "endlessRunner";
   EndlessRunner.start(state.selected, {
     bestScore: state.highScore,
+    startHealth: Math.max(player?.health || 0, 3),
     onExit: (finalScore) => {
       addScore(finalScore);
       state.mode = "select";

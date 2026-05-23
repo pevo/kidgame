@@ -24,6 +24,12 @@
   const SPEED_RAMP = 1.0;
   const SCORE_PER_SECOND = 12;
   const COIN_VALUE = 120;
+  const GRACE_TIME = 10;
+  const CURVE_START_TIME = 30;
+  const CURVE_MAX = 6.0;
+  const CURVE_LERP = 0.525;
+  const CURVE_SWITCH_MIN = 4;
+  const CURVE_SWITCH_MAX = 8;
   // Rough "world-space heights" in projection units. Multiplied by proj.scale
   // (which is ~PROJ_SCALE/(z+CAM_Z)) to get screen-pixel height, so a sprite
   // at z=0 with worldH=0.3 ends up around 94 px tall regardless of its frame
@@ -69,6 +75,22 @@
 
   const EndlessRunner = {};
   let ctx, sprites, images, keys;
+  let bgm = null;
+
+  function startMusic() {
+    if (!bgm) {
+      bgm = new Audio("assets/music/highscoredrive.mp3");
+      bgm.loop = true;
+    }
+    bgm.currentTime = 0;
+    bgm.play().catch(() => {});
+  }
+
+  function stopMusic() {
+    if (!bgm) return;
+    bgm.pause();
+    bgm.currentTime = 0;
+  }
   let runner = null;
   let onExitCallback = null;
   let prevLeft = false;
@@ -101,7 +123,7 @@
       vy: 0,
       jumpY: 0,
       grounded: true,
-      health: 3,
+      health: opts.startHealth || 3,
       score: 0,
       bestScore: opts.bestScore || 0,
       speed: START_SPEED,
@@ -121,6 +143,10 @@
       deathTimer: DEATH_DELAY,
       flashTimer: 0,
       stars: makeStarfield(),
+      gameTime: 0,
+      roadCurve: 0,
+      roadCurveTarget: 0,
+      curveSwitchTimer: 6,
     };
     onExitCallback = opts.onExit || null;
     activeTouches.clear();
@@ -134,6 +160,7 @@
   };
 
   EndlessRunner.stop = function () {
+    stopMusic();
     runner = null;
     onExitCallback = null;
     activeTouches.clear();
@@ -192,7 +219,7 @@
       prevLeft = leftDown;
       prevRight = rightDown;
       prevJump = jumpDown;
-      if (freshPress) runner.waitingForInput = false;
+      if (freshPress) { runner.waitingForInput = false; startMusic(); }
       return;
     }
 
@@ -232,10 +259,21 @@
       runner.grounded = true;
     }
 
+    runner.gameTime += dt;
+
     const advance = runner.speed * dt;
     runner.distance += advance;
-    runner.speed += SPEED_RAMP * dt;
+    if (runner.gameTime > GRACE_TIME) runner.speed += SPEED_RAMP * dt;
     if (runner.speed > runner.maxSpeed) runner.maxSpeed = runner.speed;
+
+    if (runner.gameTime > CURVE_START_TIME) {
+      runner.curveSwitchTimer -= dt;
+      if (runner.curveSwitchTimer <= 0) {
+        runner.roadCurveTarget = (Math.random() * 2 - 1) * CURVE_MAX;
+        runner.curveSwitchTimer = CURVE_SWITCH_MIN + Math.random() * (CURVE_SWITCH_MAX - CURVE_SWITCH_MIN);
+      }
+    }
+    runner.roadCurve += (runner.roadCurveTarget - runner.roadCurve) * Math.min(1, CURVE_LERP * dt);
 
     for (const obs of runner.obstacles) obs.z -= advance;
     for (const coin of runner.coins) coin.z -= advance;
@@ -281,7 +319,7 @@
   };
 
   function spawn() {
-    if (Math.random() < 0.68) {
+    if (runner.gameTime > GRACE_TIME && Math.random() < 0.68) {
       const lane = Math.floor(Math.random() * NUM_LANES);
       const types = ["chomper", "ghostBoy", "monsterboy", "ogreBaby"];
       runner.obstacles.push({
@@ -311,13 +349,15 @@
     if (runner.health <= 0) {
       runner.dead = true;
       runner.deathTimer = DEATH_DELAY;
+      stopMusic();
     }
   }
 
   function project(worldX, worldZ, worldY = 0) {
     const denom = Math.max(worldZ + CAM_Z, 0.02);
     const scale = PROJ_SCALE / denom;
-    const sx = RWIDTH / 2 + worldX * scale;
+    const curvedX = worldX + (runner ? runner.roadCurve * worldZ * 0.09 : 0);
+    const sx = RWIDTH / 2 + curvedX * scale;
     const sy = HORIZON_Y + (RHEIGHT - HORIZON_Y) * (CAM_Z / denom) - worldY * scale * 0.6;
     return { sx, sy, scale };
   }
@@ -652,7 +692,7 @@
     ctx.fillText("Caught!", RWIDTH / 2, RHEIGHT / 2 - 24);
     ctx.font = '700 22px "Nunito", sans-serif';
     ctx.fillText(`Final Score: ${Math.floor(runner.score)}`, RWIDTH / 2, RHEIGHT / 2 + 14);
-    ctx.fillText(`Top Speed: x${runner.maxSpeed.toFixed(1)}`, RWIDTH / 2, RHEIGHT / 2 + 44);
+    ctx.fillText(`Top Speed: ${runner.maxSpeed.toFixed(1)} mph`, RWIDTH / 2, RHEIGHT / 2 + 44);
     if (runner.deathTimer <= 0) {
       ctx.fillStyle = "#fde047";
       ctx.font = '800 18px "Nunito", sans-serif';
@@ -791,6 +831,7 @@
   }
 
   EndlessRunner.exit = function () {
+    stopMusic();
     const cb = onExitCallback;
     const finalScore = runner ? Math.floor(runner.score) : 0;
     runner = null;

@@ -16,6 +16,8 @@ const PRECACHE = [
   "./assets/sprites/ogreboss.png",
   "./assets/sprites/coin.png",
   "./assets/sprites/heartblacksun.png",
+  "./src/endlessRunner.js",
+  "./assets/music/highscoredrive.mp3",
   "./assets/icons/icon-180.png",
   "./assets/icons/icon-512.png",
 ];
