@@ -21,10 +21,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Stamp commit SHA into main.js
+      - name: Stamp commit SHA into app and service worker
         run: |
           SHORT_SHA=$(git rev-parse --short HEAD)
           sed -i "s/const APP_COMMIT = \"[^\"]*\";/const APP_COMMIT = \"$SHORT_SHA\";/" src/main.js
+          sed -i "s/const CACHE = \"[^\"]*\";/const CACHE = \"rescue-james-$SHORT_SHA\";/" sw.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

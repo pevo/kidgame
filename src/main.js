@@ -1665,6 +1665,7 @@ function drawWorld() {
 
   drawHud();
   if (IS_TOUCH && state.mode === "playing") drawTouchOverlay();
+  maybeReloadForServiceWorkerUpdate();
 }
 
 function drawTouchOverlay() {
@@ -2558,5 +2559,70 @@ fullscreenButton?.addEventListener("click", () => {
   toggleGameFullscreen();
 });
 
+function maybeReloadForServiceWorkerUpdate() {
+  if (!serviceWorkerUpdatePending || serviceWorkerReloading) return;
+  if (state.mode === "playing") return;
+  serviceWorkerReloading = true;
+  window.location.reload();
+}
+
+let serviceWorkerRegistration = null;
+let serviceWorkerUpdatePending = false;
+let serviceWorkerReloading = false;
+
+async function checkForServiceWorkerUpdate() {
+  if (!serviceWorkerRegistration || !navigator.onLine) return;
+  try {
+    await serviceWorkerRegistration.update();
+  } catch {
+    // Offline or transient network errors should not break the game.
+  }
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  if (location.protocol !== "http:" && location.protocol !== "https:") return;
+
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (serviceWorkerReloading) return;
+    serviceWorkerUpdatePending = true;
+    maybeReloadForServiceWorkerUpdate();
+  });
+
+  navigator.serviceWorker.register(`./sw.js?v=${APP_COMMIT}`, {
+    scope: "./",
+    updateViaCache: "none",
+  }).then((registration) => {
+    serviceWorkerRegistration = registration;
+    checkForServiceWorkerUpdate();
+
+    registration.addEventListener("updatefound", () => {
+      const installing = registration.installing;
+      if (!installing) return;
+      installing.addEventListener("statechange", () => {
+        if (installing.state === "installed" && navigator.serviceWorker.controller) {
+          serviceWorkerUpdatePending = true;
+          maybeReloadForServiceWorkerUpdate();
+        }
+      });
+    });
+  }).catch(() => {
+    // Service worker registration is optional when unavailable.
+  });
+
+  window.addEventListener("pageshow", () => {
+    checkForServiceWorkerUpdate();
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") checkForServiceWorkerUpdate();
+  });
+
+  window.setInterval(() => {
+    checkForServiceWorkerUpdate();
+  }, 60 * 60 * 1000);
+}
+
+registerServiceWorker();
 attachFooterCommit();
 loadImages();

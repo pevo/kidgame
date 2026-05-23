@@ -1,8 +1,9 @@
-const CACHE = "rescue-james-v2";
+const CACHE = "rescue-james-dev";
 
 const PRECACHE = [
   "./",
   "./index.html",
+  "./manifest.json",
   "./style.css",
   "./src/main.js",
   "./assets/fonts/fraunces-latin.woff2",
@@ -19,30 +20,90 @@ const PRECACHE = [
   "./assets/icons/icon-512.png",
 ];
 
-self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)));
-  self.skipWaiting();
-});
+const APP_SHELL = new Set([
+  "./",
+  "./index.html",
+  "./manifest.json",
+  "./style.css",
+  "./src/main.js",
+]);
 
-self.addEventListener("activate", (e) => {
-  e.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-    )
+function isSameOrigin(request) {
+  try {
+    return new URL(request.url).origin === self.location.origin;
+  } catch {
+    return false;
+  }
+}
+
+function cachePathname(url) {
+  const path = new URL(url).pathname;
+  if (path.endsWith("/")) return `${path}index.html`;
+  return path;
+}
+
+function isAppShellRequest(request) {
+  const path = cachePathname(request.url);
+  for (const entry of APP_SHELL) {
+    const entryPath = cachePathname(new URL(entry, self.location.href).href);
+    if (path === entryPath) return true;
+  }
+  return request.mode === "navigate";
+}
+
+async function putInCache(request, response) {
+  if (!response || !response.ok) return;
+  const cache = await caches.open(CACHE);
+  await cache.put(request, response);
+}
+
+async function networkFirst(request) {
+  try {
+    const response = await fetch(request);
+    await putInCache(request, response.clone());
+    return response;
+  } catch {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    if (request.mode === "navigate") {
+      const fallback = await caches.match("./index.html");
+      if (fallback) return fallback;
+    }
+    throw new Error("Offline and no cached response");
+  }
+}
+
+async function cacheFirst(request) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+  try {
+    const response = await fetch(request);
+    await putInCache(request, response.clone());
+    return response;
+  } catch {
+    throw new Error("Offline and no cached response");
+  }
+}
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE).then((cache) => cache.addAll(PRECACHE)).then(() => self.skipWaiting())
   );
-  self.clients.claim();
 });
 
-self.addEventListener("fetch", (e) => {
-  e.respondWith(
-    caches.match(e.request).then(
-      (hit) =>
-        hit ||
-        fetch(e.request).then((res) => {
-          const clone = res.clone();
-          caches.open(CACHE).then((c) => c.put(e.request, clone));
-          return res;
-        })
-    )
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))
+    ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
+  if (request.method !== "GET" || !isSameOrigin(request)) return;
+
+  event.respondWith(
+    isAppShellRequest(request) ? networkFirst(request) : cacheFirst(request)
   );
 });
