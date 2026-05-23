@@ -2555,7 +2555,43 @@ async function toggleGameFullscreen() {
   });
 });
 
+const installPrompt = document.querySelector(".install-prompt");
+const installPromptClose = document.querySelector(".install-prompt-close");
+
+function isIPhone() {
+  return /iPhone|iPod/.test(navigator.userAgent);
+}
+
+function isStandalonePWA() {
+  return window.navigator.standalone === true
+    || window.matchMedia?.("(display-mode: standalone)").matches === true;
+}
+
+function needsPWAInstallPrompt() {
+  return isIPhone() && !isStandalonePWA();
+}
+
+function showInstallPrompt() {
+  installPrompt?.removeAttribute("hidden");
+}
+
+function hideInstallPrompt() {
+  installPrompt?.setAttribute("hidden", "");
+}
+
+installPromptClose?.addEventListener("click", hideInstallPrompt);
+installPrompt?.addEventListener("click", (event) => {
+  if (event.target === installPrompt) hideInstallPrompt();
+});
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && installPrompt && !installPrompt.hidden) hideInstallPrompt();
+});
+
 fullscreenButton?.addEventListener("click", () => {
+  if (needsPWAInstallPrompt()) {
+    showInstallPrompt();
+    return;
+  }
   toggleGameFullscreen();
 });
 
