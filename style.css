@@ -111,18 +111,84 @@ p {
   outline: none;
 }
 
-.game-frame:fullscreen {
+.game-frame:fullscreen,
+.game-frame:-webkit-full-screen {
   display: grid;
   place-items: center;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   padding: 18px;
   background: #020617;
 }
 
-.game-frame:fullscreen canvas {
+.game-frame:fullscreen canvas,
+.game-frame:-webkit-full-screen canvas {
   width: min(100vw, calc(100vh * 16 / 9));
+  width: min(100vw, calc(100dvh * 16 / 9));
   max-height: 100vh;
+  max-height: 100dvh;
+}
+
+html.immersive {
+  overflow: hidden;
+}
+
+html.immersive body {
+  min-height: 100dvh;
+  overflow: hidden;
+}
+
+html.immersive .game-shell {
+  width: 100vw;
+  max-width: none;
+  min-height: 100dvh;
+  margin: 0;
+  padding:
+    max(8px, env(safe-area-inset-top))
+    max(8px, env(safe-area-inset-right))
+    max(8px, env(safe-area-inset-bottom))
+    max(8px, env(safe-area-inset-left));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+html.immersive .game-header > div:first-child,
+html.immersive .game-header .controls span,
+html.immersive .game-footer {
+  display: none;
+}
+
+html.immersive .game-header {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  right: max(10px, env(safe-area-inset-right));
+  z-index: 20;
+  margin: 0;
+  padding: 0;
+  gap: 0;
+}
+
+html.immersive .game-header .controls {
+  max-width: none;
+}
+
+html.immersive .game-frame {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+html.immersive canvas {
+  width: 100%;
+  max-width: 100vw;
+  max-height: calc(100dvh - 16px);
+  border-width: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 canvas {

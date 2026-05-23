@@ -2494,12 +2494,68 @@ canvas.addEventListener("touchend", (event) => {
   applyTouches(event);
 }, { passive: false });
 
-fullscreenButton?.addEventListener("click", () => {
-  if (document.fullscreenElement) {
-    document.exitFullscreen();
-  } else {
-    gameFrame?.requestFullscreen();
+function isFullscreenActive() {
+  return !!(
+    document.fullscreenElement
+    || document.webkitFullscreenElement
+    || document.documentElement.classList.contains("immersive")
+  );
+}
+
+function syncFullscreenButton() {
+  if (!fullscreenButton) return;
+  const active = isFullscreenActive();
+  fullscreenButton.setAttribute("aria-label", active ? "Exit fullscreen" : "Enter fullscreen");
+  fullscreenButton.setAttribute("aria-pressed", String(active));
+}
+
+async function enterGameFullscreen() {
+  const target = gameFrame || document.documentElement;
+  const request = target.requestFullscreen?.bind(target) || target.webkitRequestFullscreen?.bind(target);
+  if (request) {
+    try {
+      await request();
+      syncFullscreenButton();
+      return;
+    } catch {
+      // iOS Safari usually rejects element fullscreen; use CSS immersive mode.
+    }
   }
+  document.documentElement.classList.add("immersive");
+  syncFullscreenButton();
+}
+
+async function exitGameFullscreen() {
+  if (document.fullscreenElement || document.webkitFullscreenElement) {
+    const exit = document.exitFullscreen?.bind(document) || document.webkitExitFullscreen?.bind(document);
+    if (exit) {
+      try {
+        await exit();
+      } catch {
+        // ignore
+      }
+    }
+  }
+  document.documentElement.classList.remove("immersive");
+  syncFullscreenButton();
+}
+
+async function toggleGameFullscreen() {
+  if (isFullscreenActive()) await exitGameFullscreen();
+  else await enterGameFullscreen();
+}
+
+["fullscreenchange", "webkitfullscreenchange"].forEach((eventName) => {
+  document.addEventListener(eventName, () => {
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+      document.documentElement.classList.remove("immersive");
+    }
+    syncFullscreenButton();
+  });
+});
+
+fullscreenButton?.addEventListener("click", () => {
+  toggleGameFullscreen();
 });
 
 attachFooterCommit();
