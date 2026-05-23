@@ -27,6 +27,15 @@ const LEDGE_CLIMB_DURATION = 0.34;
 const LEDGE_RELEASE_GAP = 2;
 const FLASH_MESSAGE_DURATION = 1.8;
 const HIGH_SCORE_KEY = "rescueJamesHighScore";
+// Secret chomper unlocked after the first win — teaches the player how to
+// find Runner Mode. Only added in startPostWinRound() (win screen coupon).
+// sessionWins == 1 → static "come back" message; >= 2 → walks left to demo
+// the 3-second left-hold gesture. Tracked in memory only (resets on reload).
+const SECRET_CHOMPER_X = 260;
+const SECRET_CHOMPER_TRIGGER_DISTANCE = 220;
+const SECRET_CHOMPER_TALK_DELAY = 2.2;
+const SECRET_CHOMPER_WALK_SPEED = -120;
+const RUNNER_HINT_DELAY = 18;
 const APP_COMMIT = "dev";
 const TITLE_FONT = '"Fraunces", Georgia, serif';
 const UI_FONT = '"Nunito", "Trebuchet MS", sans-serif';
@@ -69,11 +78,20 @@ const state = {
   score: 0,
   highScore: loadHighScore(),
   newHighScore: false,
+  sessionWins: 0,
+  runnerHintTimer: 0,
+  runnerHintShown: false,
   wonInputReadyAt: 0,
   messageTimer: 0,
   nextLevelTimer: 0,
   lastTime: 0,
+  leftHoldTimer: 0,
+  runnerEntryTimer: 0,
 };
+
+const RUNNER_LEFT_HOLD_SECONDS = 3;
+const RUNNER_ENTRY_DURATION = 1.6;
+const RUNNER_ENTRY_WALK_SPEED = -210;
 
 const sprites = {
   mark: {
@@ -599,6 +617,7 @@ function loadImages() {
 
   Promise.all(promises)
     .then(() => {
+      EndlessRunner.init({ ctx, sprites, images, keys });
       resetGame();
       state.mode = "select";
       requestAnimationFrame(loop);
@@ -652,6 +671,8 @@ function startLevel(levelIndex, character = state.selected, health = 3, attackUn
     climbTimer: 0,
   };
   enemies = level.enemies.flatMap((enemy) => makeEnemyWave(enemy, state.monsterMultiplier));
+  state.runnerHintTimer = 0;
+  state.runnerHintShown = false;
   enemyProjectiles = [];
   collectibles = (level.collectibles || []).map((item) => makeCollectible(item.type, item.x, item.y));
   const bossStats = getBossStats(level.boss.type);
@@ -759,6 +780,30 @@ function makeChomper(x, y, minX, maxX) {
   };
 }
 
+function makeSecretChomper(x) {
+  return {
+    type: "chomper",
+    secret: true,
+    // Only the first secret chomper (the "come back after another win" one)
+    // is stompable — squashing it is a fun side-discovery and clears the
+    // bubble. The demo chomper has to stay alive to walk the gesture.
+    stompable: state.sessionWins === 1,
+    secretPhase: "idle", // "idle" → "talking" → "walking" → "done"
+    secretTimer: 0,
+    x,
+    y: GROUND_Y - CHOMPER_FEET_OFFSET + CHOMPER_HITBOX_Y_OFFSET,
+    w: 58,
+    h: 52,
+    vx: 0,
+    minX: x - 4,
+    maxX: x + 4,
+    facing: 1,
+    defeated: false,
+    hurtTimer: 0,
+    animTime: 0,
+  };
+}
+
 function makeGhostBoy(x, y) {
   return {
     type: "ghostBoy",
@@ -828,6 +873,14 @@ function loop(timestamp) {
 }
 
 function update(dt) {
+  if (state.mode === "endlessRunner") {
+    EndlessRunner.update(dt);
+    return;
+  }
+  if (state.mode === "runnerEntry") {
+    updateRunnerEntry(dt);
+    return;
+  }
   if (state.mode === "playing") {
     updatePlayer(dt);
     updateAttack(dt);
@@ -838,6 +891,7 @@ function update(dt) {
     updateCollectibles(dt);
     updateParticles(dt);
     updateCamera();
+    updateRunnerHint(dt);
   } else if (state.mode === "levelComplete") {
     updateIdleAnimations(dt);
     updateParticles(dt);
@@ -850,6 +904,32 @@ function update(dt) {
   } else {
     updateIdleAnimations(dt);
   }
+}
+
+function updateRunnerHint(dt) {
+  // Backup hint only pairs with the demo chomper, so it follows the same
+  // visibility window — sessionWins exactly equal to 2.
+  if (state.levelIndex !== 0) return;
+  if (state.sessionWins !== 2) return;
+  if (state.runnerHintShown) return;
+  state.runnerHintTimer += dt;
+  if (state.runnerHintTimer >= RUNNER_HINT_DELAY) state.runnerHintShown = true;
+}
+
+function updateRunnerEntry(dt) {
+  state.runnerEntryTimer -= dt;
+  if (player) {
+    player.vx = RUNNER_ENTRY_WALK_SPEED;
+    player.facing = -1;
+    player.x += player.vx * dt;
+    player.vy += GRAVITY * dt;
+    player.y += player.vy * dt;
+    player.grounded = false;
+    resolveVerticalCollisions(player);
+  }
+  updateIdleAnimations(dt);
+  updateParticles(dt);
+  if (state.runnerEntryTimer <= 0) enterEndlessRunner();
 }
 
 function updateIdleAnimations(dt) {
@@ -878,6 +958,16 @@ function updatePlayer(dt) {
   const jumping = keys.has("Space");
   const ducking = player.grounded && isPressingDown();
   updatePlayerDucking(ducking);
+
+  if (state.levelIndex === 0 && movingLeft && !movingRight && !jumping && player.grounded) {
+    state.leftHoldTimer += dt;
+    if (state.leftHoldTimer >= RUNNER_LEFT_HOLD_SECONDS) {
+      beginEndlessRunnerTransition();
+      return;
+    }
+  } else {
+    state.leftHoldTimer = 0;
+  }
 
   const accel = 1150;
   const friction = player.grounded ? 0.84 : 0.96;
@@ -1152,6 +1242,16 @@ function updateEnemies(dt) {
       continue;
     }
 
+    if (enemy.secret) {
+      updateSecretChomper(enemy, dt);
+      if (enemy.stompable && !enemy.defeated && enemy.hurtTimer <= 0 && intersects(player, enemy)) {
+        // Only stomps from above hurt the chomper — side contact does
+        // nothing, so the player can stand next to it to read the bubble.
+        if (isStomp(player, enemy)) hitEnemy(enemy, "stomp");
+      }
+      continue;
+    }
+
     if (enemy.type === "ghostBoy") {
       updateGhostBoy(enemy, dt);
     } else if (enemy.type === "ogreBaby") {
@@ -1170,6 +1270,39 @@ function updateEnemies(dt) {
       } else {
         hurtPlayer();
       }
+    }
+  }
+}
+
+function updateSecretChomper(enemy, dt) {
+  const distance = Math.abs((player.x + player.w / 2) - (enemy.x + enemy.w / 2));
+
+  if (enemy.secretPhase === "idle") {
+    if (distance < SECRET_CHOMPER_TRIGGER_DISTANCE) {
+      enemy.secretPhase = "talking";
+      enemy.secretTimer = 0;
+    }
+    return;
+  }
+
+  if (enemy.secretPhase === "talking") {
+    enemy.secretTimer += dt;
+    if (state.sessionWins >= 2 && enemy.secretTimer >= SECRET_CHOMPER_TALK_DELAY) {
+      enemy.secretPhase = "walking";
+      enemy.secretTimer = 0;
+      enemy.vx = SECRET_CHOMPER_WALK_SPEED;
+      enemy.facing = -1;
+    }
+    return;
+  }
+
+  if (enemy.secretPhase === "walking") {
+    enemy.x += enemy.vx * dt;
+    enemy.secretTimer += dt;
+    // Walked well past the screen edge (where the player would be wall-stuck)
+    // for longer than the runner trigger duration. Hide after that.
+    if (enemy.x < -120 || enemy.secretTimer > RUNNER_LEFT_HOLD_SECONDS + 4) {
+      enemy.secretPhase = "done";
     }
   }
 }
@@ -1404,7 +1537,7 @@ function dropHeart() {
 
 function updateJames(dt) {
   james.animTime += dt;
-  if (!boss.defeated) return;
+  if (!boss.defeated || james.rescued) return;
   if (intersects(player, james)) {
     james.rescued = true;
     flashMessage("James is safe!");
@@ -1415,6 +1548,7 @@ function updateJames(dt) {
     } else {
       state.mode = "won";
       state.wonInputReadyAt = performance.now() + 450;
+      state.sessionWins += 1;
     }
   }
 }
@@ -1629,6 +1763,11 @@ function draw() {
     return;
   }
 
+  if (state.mode === "endlessRunner") {
+    EndlessRunner.draw();
+    return;
+  }
+
   drawWorld();
 
   if (state.mode === "loading") {
@@ -1642,7 +1781,15 @@ function draw() {
     drawWinScreen();
   } else if (state.mode === "lost") {
     drawGameOverPanel();
+  } else if (state.mode === "runnerEntry") {
+    drawRunnerEntryOverlay();
   }
+}
+
+function drawRunnerEntryOverlay() {
+  const t = clamp(1 - state.runnerEntryTimer / RUNNER_ENTRY_DURATION, 0, 1);
+  ctx.fillStyle = `rgba(15, 23, 42, ${t})`;
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
 }
 
 function drawWorld() {
@@ -1664,6 +1811,7 @@ function drawWorld() {
   ctx.restore();
 
   drawHud();
+  drawRunnerHint();
   if (IS_TOUCH && state.mode === "playing") drawTouchOverlay();
   maybeReloadForServiceWorkerUpdate();
 }
@@ -1996,6 +2144,10 @@ function drawAttack() {
 function drawEnemies() {
   for (const enemy of enemies) {
     if (enemy.defeated && enemy.hurtTimer <= 0) continue;
+    if (enemy.secret) {
+      drawSecretChomper(enemy);
+      continue;
+    }
     if (enemy.type === "ghostBoy") {
       const animation = enemy.defeated ? "defeated" : enemy.hurtTimer > 0 ? "hurt" : enemy.behavior === "chase" ? "attack" : "float";
       drawEntity(
@@ -2052,6 +2204,135 @@ function drawEnemies() {
       enemy.vx < 0 ? 1 : -1,
     );
   }
+}
+
+function drawSecretChomper(enemy) {
+  const facing = enemy.vx < 0 ? 1 : enemy.facing || 1;
+  ctx.save();
+  // Photo-negative tint signals "this is not a normal chomper" without
+  // needing a separate sprite sheet.
+  ctx.filter = "invert(1)";
+  drawEntity(
+    enemy,
+    "chomper",
+    enemy.defeated ? "defeated" : "walk",
+    enemy.x - 10,
+    enemy.y - 6 - CHOMPER_HITBOX_Y_OFFSET,
+    enemy.w + 24,
+    enemy.h + 26,
+    facing,
+  );
+  ctx.restore();
+
+  if (enemy.defeated) return; // bubble vanishes the moment it gets stomped
+  if (enemy.secretPhase !== "talking" && enemy.secretPhase !== "walking") return;
+  const message = state.sessionWins >= 2
+    ? (enemy.secretPhase === "walking" ? "...this way..." : "Follow me...")
+    : "I have a secret to share. Meet me here after you beat the game again.";
+  drawSpeechBubble(enemy.x + enemy.w / 2, enemy.y - 14, message);
+}
+
+function drawSpeechBubble(worldX, worldY, text) {
+  const padding = 12;
+  const maxWidth = 280;
+  ctx.font = canvasFont(700, 14);
+  const lines = wrapTextLines(text, maxWidth - padding * 2);
+  const lineHeight = 18;
+  const measuredWidth = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0);
+  const w = measuredWidth + padding * 2;
+  const h = lines.length * lineHeight + padding * 2 - 4;
+  const x = worldX - w / 2;
+  const y = worldY - h - 14;
+
+  ctx.fillStyle = "rgba(255, 251, 235, 0.96)";
+  ctx.strokeStyle = "#92400e";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, 10);
+  ctx.fill();
+  ctx.stroke();
+
+  // Tail pointing down at the speaker.
+  ctx.beginPath();
+  ctx.moveTo(worldX - 7, y + h);
+  ctx.lineTo(worldX + 7, y + h);
+  ctx.lineTo(worldX, y + h + 11);
+  ctx.closePath();
+  ctx.fillStyle = "rgba(255, 251, 235, 0.96)";
+  ctx.fill();
+  ctx.strokeStyle = "#92400e";
+  ctx.beginPath();
+  ctx.moveTo(worldX - 7, y + h);
+  ctx.lineTo(worldX, y + h + 11);
+  ctx.lineTo(worldX + 7, y + h);
+  ctx.stroke();
+
+  ctx.fillStyle = "#1f2937";
+  ctx.textAlign = "center";
+  for (let i = 0; i < lines.length; i += 1) {
+    ctx.fillText(lines[i], worldX, y + padding + (i + 1) * lineHeight - 6);
+  }
+  ctx.textAlign = "left";
+}
+
+function wrapTextLines(text, maxWidth) {
+  const words = text.split(" ");
+  const lines = [];
+  let current = "";
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (current && ctx.measureText(candidate).width > maxWidth) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+function drawRunnerHint() {
+  if (!state.runnerHintShown) return;
+  if (state.mode !== "playing") return;
+
+  const padding = 12;
+  const text = "Walk over here for three seconds!";
+  ctx.font = canvasFont(700, 15);
+  const textWidth = ctx.measureText(text).width;
+  const w = textWidth + padding * 2;
+  const h = 36;
+  const x = 32;
+  const y = HEIGHT / 2 - h / 2;
+
+  ctx.fillStyle = "rgba(255, 251, 235, 0.96)";
+  ctx.strokeStyle = "#92400e";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, 10);
+  ctx.fill();
+  ctx.stroke();
+
+  // Tail pointing left, off the edge of the screen.
+  ctx.fillStyle = "rgba(255, 251, 235, 0.96)";
+  ctx.beginPath();
+  ctx.moveTo(x, y + h / 2 - 8);
+  ctx.lineTo(x - 14, y + h / 2);
+  ctx.lineTo(x, y + h / 2 + 8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "#92400e";
+  ctx.beginPath();
+  ctx.moveTo(x, y + h / 2 + 8);
+  ctx.lineTo(x - 14, y + h / 2);
+  ctx.lineTo(x, y + h / 2 - 8);
+  ctx.stroke();
+
+  ctx.fillStyle = "#1f2937";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, x + padding, y + h / 2 + 1);
+  ctx.textBaseline = "alphabetic";
 }
 
 function drawEnemyProjectiles() {
@@ -2362,6 +2643,40 @@ function selectCharacter(character) {
   flashMessage(`Go, ${capitalize(character)}! Rescue James.`);
 }
 
+function shouldShowSecretChomper() {
+  return state.sessionWins === 1 || state.sessionWins === 2;
+}
+
+function startPostWinRound() {
+  if (performance.now() < state.wonInputReadyAt) return false;
+  state.monsterMultiplier *= 2;
+  startLevel(0, state.selected, Math.max(player.health, 1), player.attackUnlocked, player.sunCount);
+  if (shouldShowSecretChomper()) {
+    enemies.unshift(makeSecretChomper(SECRET_CHOMPER_X));
+  }
+  state.mode = "playing";
+  flashMessage(`Round ${Math.log2(state.monsterMultiplier) + 1}: monsters x${state.monsterMultiplier}!`);
+  return true;
+}
+
+function beginEndlessRunnerTransition() {
+  state.leftHoldTimer = 0;
+  state.runnerEntryTimer = RUNNER_ENTRY_DURATION;
+  state.mode = "runnerEntry";
+}
+
+function enterEndlessRunner() {
+  state.mode = "endlessRunner";
+  EndlessRunner.start(state.selected, {
+    bestScore: state.highScore,
+    onExit: (finalScore) => {
+      addScore(finalScore);
+      state.mode = "select";
+      state.leftHoldTimer = 0;
+    },
+  });
+}
+
 // return hotkey number, else -1
 function getHotkeyLevelNumber(code) {
   const match = code.match(/^(?:Digit|Numpad)([0-9])$/);
@@ -2394,6 +2709,14 @@ window.addEventListener("keydown", (event) => {
 
   if (state.mode === "playing" && (event.code === "ControlLeft" || event.code === "ControlRight")) {
     startAttack();
+  }
+
+  if (state.mode === "won") {
+    if (event.code === "Enter" || event.code === "Space") {
+      event.preventDefault();
+      startPostWinRound();
+      return;
+    }
   }
 
   if (state.mode === "select") {
@@ -2431,13 +2754,9 @@ function handleCanvasTap(x, y) {
     return;
   }
   if (state.mode === "won") {
-    if (performance.now() < state.wonInputReadyAt) return;
     const button = getWinPlayAgainButtonBounds();
     if (x >= button.x && x <= button.x + button.w && y >= button.y && y <= button.y + button.h) {
-      state.monsterMultiplier *= 2;
-      startLevel(0, state.selected, Math.max(player.health, 1), player.attackUnlocked, player.sunCount);
-      state.mode = "playing";
-      flashMessage(`Round ${Math.log2(state.monsterMultiplier) + 1}: monsters x${state.monsterMultiplier}!`);
+      startPostWinRound();
     }
     return;
   }
