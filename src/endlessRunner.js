@@ -62,6 +62,11 @@
   const SKY_MID_COLOR = [91, 33, 182];
   const SKY_HORIZON_COLOR = [219, 39, 119];
 
+  const SWIPE_MIN_DISTANCE = 48;
+  const SWIPE_MAX_VERTICAL_DRIFT = 80;
+  const TAP_MAX_MOVE = 22;
+  const TAP_MAX_DURATION_MS = 400;
+
   const EndlessRunner = {};
   let ctx, sprites, images, keys;
   let runner = null;
@@ -70,12 +75,22 @@
   let prevRight = false;
   let prevJump = false;
   let prevExit = false;
+  let isTouch = false;
+  let canvasEl = null;
+  let touchControlsBound = false;
+  const activeTouches = new Map();
+  let touchPulseLeft = false;
+  let touchPulseRight = false;
+  let touchPulseJump = false;
+  let touchPulseStart = false;
 
   EndlessRunner.init = function (deps) {
     ctx = deps.ctx;
     sprites = deps.sprites;
     images = deps.images;
     keys = deps.keys;
+    isTouch = !!deps.isTouch;
+    if (deps.canvas) bindTouchControls(deps.canvas);
   };
 
   EndlessRunner.start = function (character, opts = {}) {
@@ -108,17 +123,21 @@
       stars: makeStarfield(),
     };
     onExitCallback = opts.onExit || null;
+    activeTouches.clear();
+    clearTouchPulses();
     // Snapshot held keys as "previous" so the gesture that opened Runner Mode
     // (held ArrowLeft) is not treated as a fresh press on the first tick.
-    prevLeft = keys.has("ArrowLeft") || keys.has("KeyA");
-    prevRight = keys.has("ArrowRight") || keys.has("KeyD");
-    prevJump = keys.has("Space") || keys.has("ArrowUp") || keys.has("KeyW");
+    prevLeft = keyLeftDown();
+    prevRight = keyRightDown();
+    prevJump = keyJumpDown();
     prevExit = keys.has("Escape");
   };
 
   EndlessRunner.stop = function () {
     runner = null;
     onExitCallback = null;
+    activeTouches.clear();
+    clearTouchPulses();
   };
 
   EndlessRunner.isActive = function () {
@@ -137,6 +156,8 @@
     }
     if (runner.flashTimer > 0) runner.flashTimer -= dt;
 
+    const touch = consumeTouchPulses();
+
     const exitPressed = keys.has("Escape");
     if (exitPressed && !prevExit) {
       EndlessRunner.exit();
@@ -150,20 +171,24 @@
       // Track held keys during the intro fade so the gesture that opened
       // Runner Mode does not count as the "start" press once the user is
       // free to interact.
-      prevLeft = keys.has("ArrowLeft") || keys.has("KeyA");
-      prevRight = keys.has("ArrowRight") || keys.has("KeyD");
-      prevJump = keys.has("Space") || keys.has("ArrowUp") || keys.has("KeyW") || keys.has("Enter");
+      prevLeft = keyLeftDown();
+      prevRight = keyRightDown();
+      prevJump = keyJumpDown() || keyStartDown();
       return;
     }
 
     if (runner.waitingForInput) {
-      const leftDown = keys.has("ArrowLeft") || keys.has("KeyA");
-      const rightDown = keys.has("ArrowRight") || keys.has("KeyD");
-      const jumpDown = keys.has("Space") || keys.has("ArrowUp") || keys.has("KeyW") || keys.has("Enter");
+      const leftDown = keyLeftDown();
+      const rightDown = keyRightDown();
+      const jumpDown = keyJumpDown() || keyStartDown();
       const freshPress =
         (leftDown && !prevLeft) ||
         (rightDown && !prevRight) ||
-        (jumpDown && !prevJump);
+        (jumpDown && !prevJump) ||
+        touch.start ||
+        touch.jump ||
+        touch.left ||
+        touch.right;
       prevLeft = leftDown;
       prevRight = rightDown;
       prevJump = jumpDown;
@@ -173,7 +198,7 @@
 
     if (runner.dead) {
       if (runner.deathTimer > 0) runner.deathTimer -= dt;
-      const restart = keys.has("Space") || keys.has("Enter");
+      const restart = keyJumpDown() || keyStartDown() || touch.start || touch.jump;
       if (runner.deathTimer <= 0 && restart && !prevJump) {
         EndlessRunner.exit();
       }
@@ -181,16 +206,16 @@
       return;
     }
 
-    const leftDown = keys.has("ArrowLeft") || keys.has("KeyA");
-    const rightDown = keys.has("ArrowRight") || keys.has("KeyD");
-    const jumpDown = keys.has("Space") || keys.has("ArrowUp") || keys.has("KeyW");
+    const leftDown = keyLeftDown();
+    const rightDown = keyRightDown();
+    const jumpDown = keyJumpDown();
 
-    if (leftDown && !prevLeft) runner.lane = Math.max(0, runner.lane - 1);
-    if (rightDown && !prevRight) runner.lane = Math.min(NUM_LANES - 1, runner.lane + 1);
+    if ((leftDown && !prevLeft) || touch.left) runner.lane = Math.max(0, runner.lane - 1);
+    if ((rightDown && !prevRight) || touch.right) runner.lane = Math.min(NUM_LANES - 1, runner.lane + 1);
     prevLeft = leftDown;
     prevRight = rightDown;
 
-    if (jumpDown && !prevJump && runner.grounded) {
+    if (((jumpDown && !prevJump) || touch.jump) && runner.grounded) {
       runner.vy = -JUMP_SPEED;
       runner.grounded = false;
     }
@@ -590,10 +615,12 @@
     drawRoundRect(RWIDTH - 270, 16, 252, 50, 10);
     ctx.fillStyle = "#fde047";
     ctx.font = '800 14px "Nunito", sans-serif';
-    ctx.fillText("←/→ switch lane  ·  Space jump", RWIDTH - 256, 38);
-    ctx.fillStyle = "rgba(248, 250, 252, 0.7)";
-    ctx.font = '700 12px "Nunito", sans-serif';
-    ctx.fillText("ESC to exit Endless Mode", RWIDTH - 256, 56);
+    ctx.fillText(runnerHudControlsLine(), RWIDTH - 256, 38);
+    if (!isTouch) {
+      ctx.fillStyle = "rgba(248, 250, 252, 0.7)";
+      ctx.font = '700 12px "Nunito", sans-serif';
+      ctx.fillText("ESC to exit Endless Mode", RWIDTH - 256, 56);
+    }
   }
 
   function drawIntro() {
@@ -606,12 +633,12 @@
     ctx.fillText("ENDLESS RESCUE JAMES", RWIDTH / 2, RHEIGHT / 2 - 6);
     ctx.fillStyle = "#f8fafc";
     ctx.font = '700 18px "Nunito", sans-serif';
-    ctx.fillText("←/→ to switch lanes  ·  Space to jump  ·  ESC to exit", RWIDTH / 2, RHEIGHT / 2 + 32);
+    ctx.fillText(runnerIntroControlsLine(), RWIDTH / 2, RHEIGHT / 2 + 32);
     if (runner.introTimer <= 0 && runner.waitingForInput) {
       const pulse = 0.55 + 0.45 * Math.sin(runner.animTime * 5);
       ctx.fillStyle = `rgba(253, 224, 71, ${pulse})`;
       ctx.font = '800 24px "Nunito", sans-serif';
-      ctx.fillText("Press any key to start", RWIDTH / 2, RHEIGHT / 2 + 86);
+      ctx.fillText(isTouch ? "Tap to start" : "Press any key to start", RWIDTH / 2, RHEIGHT / 2 + 86);
     }
     ctx.textAlign = "left";
   }
@@ -629,7 +656,7 @@
     if (runner.deathTimer <= 0) {
       ctx.fillStyle = "#fde047";
       ctx.font = '800 18px "Nunito", sans-serif';
-      ctx.fillText("Press SPACE to return", RWIDTH / 2, RHEIGHT / 2 + 84);
+      ctx.fillText(isTouch ? "Tap to return" : "Press SPACE to return", RWIDTH / 2, RHEIGHT / 2 + 84);
     }
     ctx.textAlign = "left";
   }
@@ -653,6 +680,114 @@
       });
     }
     return stars;
+  }
+
+  function keyLeftDown() {
+    return keys.has("ArrowLeft") || keys.has("KeyA");
+  }
+
+  function keyRightDown() {
+    return keys.has("ArrowRight") || keys.has("KeyD");
+  }
+
+  function keyJumpDown() {
+    return keys.has("Space") || keys.has("ArrowUp") || keys.has("KeyW");
+  }
+
+  function keyStartDown() {
+    return keys.has("Enter");
+  }
+
+  function runnerIntroControlsLine() {
+    if (isTouch) return "Swipe left or right to switch lanes  ·  Tap to jump";
+    return "←/→ to switch lanes  ·  Space to jump  ·  ESC to exit";
+  }
+
+  function runnerHudControlsLine() {
+    if (isTouch) return "Swipe to switch lane  ·  Tap to jump";
+    return "←/→ switch lane  ·  Space jump";
+  }
+
+  function clearTouchPulses() {
+    touchPulseLeft = false;
+    touchPulseRight = false;
+    touchPulseJump = false;
+    touchPulseStart = false;
+  }
+
+  function consumeTouchPulses() {
+    const pulses = {
+      left: touchPulseLeft,
+      right: touchPulseRight,
+      jump: touchPulseJump,
+      start: touchPulseStart,
+    };
+    clearTouchPulses();
+    return pulses;
+  }
+
+  function touchCoords(clientX, clientY) {
+    const rect = canvasEl.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left) * (canvasEl.width / rect.width),
+      y: (clientY - rect.top) * (canvasEl.height / rect.height),
+    };
+  }
+
+  function resolveTouchGesture(start, endX, endY) {
+    const dx = endX - start.x;
+    const dy = endY - start.y;
+    const dt = performance.now() - start.time;
+    const absDx = Math.abs(dx);
+    const absDy = Math.abs(dy);
+    const gameplayReady = runner.introTimer <= 0 && !runner.waitingForInput && !runner.dead;
+
+    if (
+      gameplayReady &&
+      absDx >= SWIPE_MIN_DISTANCE &&
+      absDx > absDy &&
+      absDy <= SWIPE_MAX_VERTICAL_DRIFT
+    ) {
+      if (dx < 0) touchPulseLeft = true;
+      else touchPulseRight = true;
+      return;
+    }
+
+    if (absDx <= TAP_MAX_MOVE && absDy <= TAP_MAX_MOVE && dt <= TAP_MAX_DURATION_MS) {
+      if (runner.waitingForInput || runner.dead) touchPulseStart = true;
+      else if (gameplayReady) touchPulseJump = true;
+    }
+  }
+
+  function bindTouchControls(canvas) {
+    if (!isTouch || touchControlsBound) return;
+    touchControlsBound = true;
+    canvasEl = canvas;
+
+    function onTouchStart(event) {
+      if (!runner) return;
+      event.preventDefault();
+      for (const t of event.changedTouches) {
+        const { x, y } = touchCoords(t.clientX, t.clientY);
+        activeTouches.set(t.identifier, { x, y, time: performance.now() });
+      }
+    }
+
+    function onTouchEnd(event) {
+      if (!runner) return;
+      event.preventDefault();
+      for (const t of event.changedTouches) {
+        const start = activeTouches.get(t.identifier);
+        activeTouches.delete(t.identifier);
+        if (!start) continue;
+        const { x, y } = touchCoords(t.clientX, t.clientY);
+        resolveTouchGesture(start, x, y);
+      }
+    }
+
+    canvas.addEventListener("touchstart", onTouchStart, { passive: false });
+    canvas.addEventListener("touchend", onTouchEnd, { passive: false });
+    canvas.addEventListener("touchcancel", onTouchEnd, { passive: false });
   }
 
   EndlessRunner.exit = function () {

@@ -58,6 +58,7 @@ const DPAD_OUTER_R = 82;
 const DPAD_DEAD_ZONE = 13;
 const DPAD_IDS = new Set(["up", "left", "right", "down"]);
 let touchPressedKeys = new Set();
+const runnerHintEngagedEnemies = new Set();
 
 const assets = {
   characters: "assets/sprites/characters.png",
@@ -81,6 +82,7 @@ const state = {
   sessionWins: 0,
   runnerHintTimer: 0,
   runnerHintShown: false,
+  runnerHintDismissed: false,
   wonInputReadyAt: 0,
   messageTimer: 0,
   nextLevelTimer: 0,
@@ -617,7 +619,7 @@ function loadImages() {
 
   Promise.all(promises)
     .then(() => {
-      EndlessRunner.init({ ctx, sprites, images, keys });
+      EndlessRunner.init({ ctx, sprites, images, keys, canvas, isTouch: IS_TOUCH });
       resetGame();
       state.mode = "select";
       requestAnimationFrame(loop);
@@ -673,6 +675,8 @@ function startLevel(levelIndex, character = state.selected, health = 3, attackUn
   enemies = level.enemies.flatMap((enemy) => makeEnemyWave(enemy, state.monsterMultiplier));
   state.runnerHintTimer = 0;
   state.runnerHintShown = false;
+  state.runnerHintDismissed = false;
+  runnerHintEngagedEnemies.clear();
   enemyProjectiles = [];
   collectibles = (level.collectibles || []).map((item) => makeCollectible(item.type, item.x, item.y));
   const bossStats = getBossStats(level.boss.type);
@@ -1602,7 +1606,15 @@ function isStomp(attacker, target) {
   return attacker.vy > 120 && attackerBottom - targetTop < 34;
 }
 
+function noteRunnerHintEngagement(enemy) {
+  if (!state.runnerHintShown || state.runnerHintDismissed) return;
+  if (enemy.secret) return;
+  runnerHintEngagedEnemies.add(enemy);
+  if (runnerHintEngagedEnemies.size >= 2) state.runnerHintDismissed = true;
+}
+
 function hitEnemy(enemy, source = "stomp") {
+  noteRunnerHintEngagement(enemy);
   addScore(100);
   if (enemy.type === "monsterboy") {
     enemy.hp -= 1;
@@ -2293,7 +2305,7 @@ function wrapTextLines(text, maxWidth) {
 }
 
 function drawRunnerHint() {
-  if (!state.runnerHintShown) return;
+  if (!state.runnerHintShown || state.runnerHintDismissed) return;
   if (state.mode !== "playing") return;
 
   const padding = 12;
@@ -2775,6 +2787,7 @@ canvas.addEventListener("click", (event) => {
 });
 
 function applyTouches(event) {
+  if (state.mode === "endlessRunner") return;
   event.preventDefault();
   const prevAttack = touchPressedKeys.has("ControlLeft");
   const nowPressed = new Set();
