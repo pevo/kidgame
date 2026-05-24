@@ -81,7 +81,7 @@
     if (!bgm) {
       bgm = new Audio("assets/music/highscoredrive.mp3");
       bgm.loop = true;
-      bgm.volume = 0.275;
+      bgm.volume = 0.2;
     }
     bgm.currentTime = 0;
     bgm.play().catch(() => {});
@@ -167,6 +167,9 @@
     activeTouches.clear();
     clearTouchPulses();
   };
+
+  EndlessRunner.pauseMusic = function () { bgm?.pause(); };
+  EndlessRunner.resumeMusic = function () { bgm?.play().catch(() => {}); };
 
   EndlessRunner.isActive = function () {
     return !!runner;

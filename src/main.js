@@ -644,7 +644,27 @@ const soundFiles = {
   rescue:       "assets/sfx/yeah.wav",
 };
 
-const sounds = {};
+// Web Audio API for zero-latency SFX. Raw ArrayBuffers are fetched at load
+// time; decoding into AudioBuffers happens on first user gesture (when the
+// AudioContext is created), so iOS autoplay policy is never tripped.
+let audioCtx = null;
+const rawSoundData = {};   // name → ArrayBuffer (awaiting decode)
+const soundBuffers = {};   // name → AudioBuffer (ready to play)
+
+function ensureAudioContext() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window["webkitAudioContext"])();
+  for (const name of Object.keys(rawSoundData)) decodeSoundBuffer(name);
+}
+
+function decodeSoundBuffer(name) {
+  const buf = rawSoundData[name];
+  if (!buf || !audioCtx) return;
+  audioCtx.decodeAudioData(buf.slice(0), decoded => {
+    soundBuffers[name] = decoded;
+    delete rawSoundData[name];
+  }, () => {});
+}
 
 let mainBgm = null;
 
@@ -652,7 +672,7 @@ function startMainMusic() {
   if (!mainBgm) {
     mainBgm = new Audio("assets/music/handheldsolitude.mp3");
     mainBgm.loop = true;
-    mainBgm.volume = 0.15;
+    mainBgm.volume = 0.05;
   }
   mainBgm.play().catch(() => {});
 }
@@ -663,17 +683,25 @@ function stopMainMusic() {
 
 function loadSounds() {
   for (const [name, src] of Object.entries(soundFiles)) {
-    const audio = new Audio(src);
-    audio.preload = "auto";
-    sounds[name] = audio;
+    fetch(src)
+      .then(r => r.arrayBuffer())
+      .then(buf => {
+        rawSoundData[name] = buf;
+        if (audioCtx) decodeSoundBuffer(name);
+      })
+      .catch(() => {});
   }
 }
 
 function playSound(name) {
-  const audio = sounds[name];
-  if (!audio) return;
-  audio.currentTime = 0;
-  audio.play().catch(() => {});
+  ensureAudioContext();
+  const buffer = soundBuffers[name];
+  if (!buffer) return;
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  const source = audioCtx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(audioCtx.destination);
+  source.start(0);
 }
 
 let jamesLoadingInterval = null;
@@ -3135,6 +3163,16 @@ function registerServiceWorker() {
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") checkForServiceWorkerUpdate();
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      mainBgm?.pause();
+      if (state.mode === "endlessRunner") EndlessRunner.pauseMusic();
+    } else {
+      if (state.mode === "endlessRunner") EndlessRunner.resumeMusic();
+      else mainBgm?.play().catch(() => {});
+    }
   });
 
   window.setInterval(() => {
