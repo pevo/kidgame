@@ -606,11 +606,80 @@ let boss;
 let james;
 let particles = [];
 
+function createInvertedImage(src) {
+  try {
+    const c = document.createElement("canvas");
+    c.width = src.naturalWidth;
+    c.height = src.naturalHeight;
+    const cx = c.getContext("2d");
+    cx.drawImage(src, 0, 0);
+    const imageData = cx.getImageData(0, 0, c.width, c.height);
+    const { data } = imageData;
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] > 0) {
+        data[i]     = 255 - data[i];
+        data[i + 1] = 255 - data[i + 1];
+        data[i + 2] = 255 - data[i + 2];
+      }
+    }
+    cx.putImageData(imageData, 0, 0);
+    return c;
+  } catch {
+    // file:// or cross-origin context blocks getImageData; drawSecretChomper
+    // falls back to ctx.filter (supported on all non-iOS browsers).
+    return null;
+  }
+}
+
+let jamesLoadingInterval = null;
+
+function startJamesLoadingAnimation() {
+  if (jamesLoadingInterval !== null) return;
+  const loadCanvas = document.getElementById("james-loading-canvas");
+  if (!loadCanvas || !images.characters) return;
+  const jctx = loadCanvas.getContext("2d");
+  jctx.imageSmoothingEnabled = false;
+  let frameIdx = 0;
+  const frames = sprites.james.idle;
+  const cw = loadCanvas.width;
+  const ch = loadCanvas.height;
+  jamesLoadingInterval = setInterval(() => {
+    const f = frames[frameIdx % frames.length];
+    const scale = Math.min(cw / f.w, ch / f.h);
+    const dw = Math.round(f.w * scale);
+    const dh = Math.round(f.h * scale);
+    const dx = Math.round((cw - dw) / 2);
+    const dy = ch - dh;
+    jctx.clearRect(0, 0, cw, ch);
+    jctx.drawImage(images.characters, f.x, f.y, f.w, f.h, dx, dy, dw, dh);
+    frameIdx++;
+  }, 400);
+}
+
+function hideLoadingScreen() {
+  if (jamesLoadingInterval !== null) {
+    clearInterval(jamesLoadingInterval);
+    jamesLoadingInterval = null;
+  }
+  const screen = document.getElementById("loading-screen");
+  if (!screen) return;
+  screen.classList.add("loading-screen-fade");
+  screen.addEventListener("transitionend", () => screen.remove(), { once: true });
+}
+
 function loadImages() {
-  const promises = Object.entries(assets).map(([name, src]) => new Promise((resolve, reject) => {
+  const assetEntries = Object.entries(assets);
+  const total = assetEntries.length;
+  let loaded = 0;
+
+  const promises = assetEntries.map(([name, src]) => new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => {
       images[name] = image;
+      loaded++;
+      const fill = document.getElementById("loading-progress-fill");
+      if (fill) fill.style.width = `${Math.round((loaded / total) * 100)}%`;
+      if (name === "characters") startJamesLoadingAnimation();
       resolve();
     };
     image.onerror = () => reject(new Error(`Could not load ${src}`));
@@ -620,13 +689,16 @@ function loadImages() {
   Promise.all(promises)
     .then(() => {
       EndlessRunner.init({ ctx, sprites, images, keys, canvas, isTouch: IS_TOUCH });
+      images.chomperInverted = createInvertedImage(images.chomper);
       resetGame();
       state.mode = "select";
+      hideLoadingScreen();
       requestAnimationFrame(loop);
     })
     .catch((error) => {
       state.mode = "error";
       state.error = error.message;
+      hideLoadingScreen();
       requestAnimationFrame(loop);
     });
 }
@@ -2220,21 +2292,38 @@ function drawEnemies() {
 
 function drawSecretChomper(enemy) {
   const facing = enemy.vx < 0 ? 1 : enemy.facing || 1;
-  ctx.save();
-  // Photo-negative tint signals "this is not a normal chomper" without
-  // needing a separate sprite sheet.
-  ctx.filter = "invert(1)";
-  drawEntity(
-    enemy,
-    "chomper",
-    enemy.defeated ? "defeated" : "walk",
-    enemy.x - 10,
-    enemy.y - 6 - CHOMPER_HITBOX_Y_OFFSET,
-    enemy.w + 24,
-    enemy.h + 26,
-    facing,
-  );
-  ctx.restore();
+  if (images.chomperInverted) {
+    // Pre-inverted sprite: works on all browsers including iOS Safari < 18
+    // which doesn't support ctx.filter.
+    const original = images.chomper;
+    images.chomper = images.chomperInverted;
+    drawEntity(
+      enemy,
+      "chomper",
+      enemy.defeated ? "defeated" : "walk",
+      enemy.x - 10,
+      enemy.y - 6 - CHOMPER_HITBOX_Y_OFFSET,
+      enemy.w + 24,
+      enemy.h + 26,
+      facing,
+    );
+    images.chomper = original;
+  } else {
+    // Fallback for file:// dev runs where getImageData is blocked.
+    ctx.save();
+    ctx.filter = "invert(1)";
+    drawEntity(
+      enemy,
+      "chomper",
+      enemy.defeated ? "defeated" : "walk",
+      enemy.x - 10,
+      enemy.y - 6 - CHOMPER_HITBOX_Y_OFFSET,
+      enemy.w + 24,
+      enemy.h + 26,
+      facing,
+    );
+    ctx.restore();
+  }
 
   if (enemy.defeated) return; // bubble vanishes the moment it gets stomped
   if (enemy.secretPhase !== "talking" && enemy.secretPhase !== "walking") return;

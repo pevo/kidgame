@@ -101,9 +101,29 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+async function staleWhileRevalidate(event, request) {
+  const cached = await caches.match(request);
+  const fetchPromise = fetch(request).then(async (response) => {
+    await putInCache(request, response.clone());
+    return response;
+  }).catch(() => null);
+  if (cached) {
+    event.waitUntil(fetchPromise);
+    return cached;
+  }
+  const fresh = await fetchPromise;
+  if (fresh) return fresh;
+  throw new Error("Offline and no cached response");
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET" || !isSameOrigin(request)) return;
+
+  if (request.mode === "navigate") {
+    event.respondWith(staleWhileRevalidate(event, request));
+    return;
+  }
 
   event.respondWith(
     isAppShellRequest(request) ? networkFirst(request) : cacheFirst(request)
