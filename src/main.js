@@ -631,6 +631,51 @@ function createInvertedImage(src) {
   }
 }
 
+const soundFiles = {
+  jump:         "assets/sfx/hmeep.wav",
+  hurt:         "assets/sfx/mmm.wav",
+  select:       "assets/sfx/mmmhmm.wav",
+  stomp:        "assets/sfx/ohsmall.wav",
+  bossHurt:     "assets/sfx/ooohg.wav",
+  bossDefeated: "assets/sfx/phooh.wav",
+  punch1:       "assets/sfx/punch1.wav",
+  punch2:       "assets/sfx/punch2.wav",
+  swing:        "assets/sfx/swing.wav",
+  rescue:       "assets/sfx/yeah.wav",
+};
+
+const sounds = {};
+
+let mainBgm = null;
+
+function startMainMusic() {
+  if (!mainBgm) {
+    mainBgm = new Audio("assets/music/handheldsolitude.mp3");
+    mainBgm.loop = true;
+    mainBgm.volume = 0.15;
+  }
+  mainBgm.play().catch(() => {});
+}
+
+function stopMainMusic() {
+  mainBgm?.pause();
+}
+
+function loadSounds() {
+  for (const [name, src] of Object.entries(soundFiles)) {
+    const audio = new Audio(src);
+    audio.preload = "auto";
+    sounds[name] = audio;
+  }
+}
+
+function playSound(name) {
+  const audio = sounds[name];
+  if (!audio) return;
+  audio.currentTime = 0;
+  audio.play().catch(() => {});
+}
+
 let jamesLoadingInterval = null;
 
 function startJamesLoadingAnimation() {
@@ -1068,6 +1113,7 @@ function updatePlayer(dt) {
     if (!player.ducking) {
       player.vy = player.character === "maria" ? -575 * 1.3 : -575;
       player.grounded = false;
+      playSound("jump");
     }
   }
 
@@ -1534,6 +1580,9 @@ function updateBoss(dt) {
       boss.attackCooldown = 5;
       boss.attackTimer = 0.72;
       boss.attackHasHit = false;
+      if (boss.x - camera.x < WIDTH && boss.x + boss.w - camera.x > 0) {
+        playSound("swing");
+      }
     }
     tryClubSwing(boss, 106, 70, 0.5, 0.14);
   }
@@ -1586,12 +1635,14 @@ function damageBoss() {
   addScore(100);
   flashMessage(boss.hp > 0 ? `${boss.hp} hit${boss.hp === 1 ? "" : "s"} left!` : "The boss is down. Rescue James!");
   if (boss.hp <= 0) {
+    playSound("bossDefeated");
     spawnBossDefeatBurst();
     boss.defeated = true;
     boss.vx = 0;
     boss.y = boss.type === "ogreboss" ? GROUND_Y - boss.h : GROUND_Y - 52;
     dropHeart();
   } else {
+    playSound("bossHurt");
     spawnBurst(boss.x + boss.w / 2, boss.y + 18, "#facc15");
   }
 }
@@ -1616,6 +1667,7 @@ function updateJames(dt) {
   if (!boss.defeated || james.rescued) return;
   if (intersects(player, james)) {
     james.rescued = true;
+    playSound("rescue");
     flashMessage("James is safe!");
     spawnBurst(james.x + james.w / 2, james.y + 18, "#a78bfa");
     if (state.levelIndex < levels.length - 1) {
@@ -1705,7 +1757,10 @@ function hitEnemy(enemy, source = "stomp") {
 function defeatEnemy(enemy, source = "stomp") {
   enemy.defeated = true;
   enemy.hurtTimer = 0.8;
-  if (source === "stomp") player.vy = -440;
+  if (source === "stomp") {
+    player.vy = -440;
+    playSound("stomp");
+  }
   const burstColor = enemy.type === "ghostBoy" ? "#c084fc" : enemy.type === "monsterboy" ? "#22c55e" : enemy.type === "ogreBaby" ? "#fb923c" : "#e5e7eb";
   const enemyName = enemy.type === "ghostBoy" ? "Ghost Boy" : enemy.type === "monsterboy" ? "Monsterboy" : enemy.type === "ogreBaby" ? "Ogre Baby" : "Chomper";
   spawnBurst(enemy.x + enemy.w / 2, enemy.y + 10, burstColor);
@@ -1717,6 +1772,7 @@ function hurtPlayer(fell = false) {
   releaseLedgeGrab();
   loseSun();
   player.health -= 1;
+  playSound("hurt");
   player.invincible = 1.4;
   player.vx = fell ? 0 : -player.facing * 190;
   player.vy = -380;
@@ -1744,6 +1800,7 @@ function startAttack() {
   player.attackCooldown = 0.55;
   player.attackHasHit = false;
   player.attackDirection = isPressingUp() ? "up" : "forward";
+  playSound(Math.random() < 0.5 ? "punch1" : "punch2");
 }
 
 function isPressingUp() {
@@ -2739,6 +2796,8 @@ function canvasFont(weight, size, family = UI_FONT) {
 }
 
 function selectCharacter(character) {
+  playSound("select");
+  startMainMusic();
   resetGame(character);
   state.mode = "playing";
   flashMessage(`Go, ${capitalize(character)}! Rescue James.`);
@@ -2767,6 +2826,7 @@ function beginEndlessRunnerTransition() {
 }
 
 function enterEndlessRunner() {
+  stopMainMusic();
   state.mode = "endlessRunner";
   EndlessRunner.start(state.selected, {
     bestScore: state.highScore,
@@ -2775,6 +2835,7 @@ function enterEndlessRunner() {
       addScore(finalScore);
       state.mode = "select";
       state.leftHoldTimer = 0;
+      startMainMusic();
     },
   });
 }
@@ -3083,4 +3144,5 @@ function registerServiceWorker() {
 
 registerServiceWorker();
 attachFooterCommit();
+loadSounds();
 loadImages();

@@ -14,8 +14,8 @@
   const SPAWN_Z = 20;
   const INTRO_TIME = 1.4;
   const DEATH_DELAY = 0.9;
-  const GRAVITY = 1500;
-  const JUMP_SPEED = 620;
+  const GRAVITY = 7500;
+  const JUMP_SPEED = 1550;
   const HIT_Z_NEAR = -0.15;
   const HIT_Z_FAR = 0.55;
   const COIN_Z_FAR = 0.45;
@@ -81,6 +81,7 @@
     if (!bgm) {
       bgm = new Audio("assets/music/highscoredrive.mp3");
       bgm.loop = true;
+      bgm.volume = 0.275;
     }
     bgm.currentTime = 0;
     bgm.play().catch(() => {});
