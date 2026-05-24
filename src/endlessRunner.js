@@ -15,7 +15,7 @@
   const INTRO_TIME = 1.4;
   const DEATH_DELAY = 0.9;
   const GRAVITY = 7500;
-  const JUMP_SPEED = 1550;
+  const JUMP_SPEED = 1733;
   const HIT_Z_NEAR = -0.15;
   const HIT_Z_FAR = 0.55;
   const COIN_Z_FAR = 0.45;

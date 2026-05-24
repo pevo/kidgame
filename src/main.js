@@ -674,6 +674,7 @@ function startMainMusic() {
     mainBgm.loop = true;
     mainBgm.volume = 0.05;
   }
+  mainBgm.currentTime = 0;
   mainBgm.play().catch(() => {});
 }
 
