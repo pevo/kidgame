@@ -81,7 +81,7 @@
     if (!bgm) {
       bgm = new Audio("assets/music/highscoredrive.mp3");
       bgm.loop = true;
-      bgm.volume = 0.2;
+      bgm.volume = 0.30;
     }
     bgm.currentTime = 0;
     bgm.play().catch(() => {});

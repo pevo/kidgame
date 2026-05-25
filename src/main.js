@@ -36,6 +36,7 @@ const SECRET_CHOMPER_TRIGGER_DISTANCE = 220;
 const SECRET_CHOMPER_TALK_DELAY = 2.2;
 const SECRET_CHOMPER_WALK_SPEED = -120;
 const RUNNER_HINT_DELAY = 18;
+const LEVEL2_SECRET_WORLD_WIDTH = 5600;
 const APP_COMMIT = "dev";
 const TITLE_FONT = '"Fraunces", Georgia, serif';
 const UI_FONT = '"Nunito", "Trebuchet MS", sans-serif';
@@ -84,6 +85,7 @@ const state = {
   runnerHintShown: false,
   runnerHintDismissed: false,
   wonInputReadyAt: 0,
+  secretAreaUnlocked: false,
   messageTimer: 0,
   nextLevelTimer: 0,
   lastTime: 0,
@@ -463,7 +465,7 @@ const levels = [
     name: "Ghost Grove",
     worldWidth: 4300,
     platforms: [
-      { x: 0, y: GROUND_Y, w: 4300, h: 80 },
+      { x: 0, y: GROUND_Y, w: LEVEL2_SECRET_WORLD_WIDTH, h: 80 },
       { x: 390, y: 394, w: 240, h: 28 },
       { x: 790, y: 330, w: 230, h: 28 },
       { x: 1190, y: 386, w: 260, h: 28 },
@@ -495,6 +497,9 @@ const levels = [
       { type: "coin", x: 2120, y: 358 },
       { type: "coin", x: 2570, y: 294 },
       { type: "coin", x: 3010, y: 344 },
+      { type: "heart", x: 4420, y: GROUND_Y - 72 },
+      { type: "heart", x: 4840, y: GROUND_Y - 72 },
+      { type: "heart", x: 5260, y: GROUND_Y - 72 },
     ],
     boss: { x: 3750, minX: 3640, maxX: 3920 },
     jamesX: 4120,
@@ -672,7 +677,7 @@ function startMainMusic() {
   if (!mainBgm) {
     mainBgm = new Audio("assets/music/handheldsolitude.mp3");
     mainBgm.loop = true;
-    mainBgm.volume = 0.05;
+    mainBgm.volume = 0.35;
   }
   mainBgm.currentTime = 0;
   mainBgm.play().catch(() => {});
@@ -793,6 +798,7 @@ function startLevel(levelIndex, character = state.selected, health = 3, attackUn
   state.selected = character;
   state.messageTimer = 0;
   state.nextLevelTimer = 0;
+  state.secretAreaUnlocked = false;
   camera.x = 0;
   player = {
     character,
@@ -1038,6 +1044,7 @@ function update(dt) {
     updateEnemyProjectiles(dt);
     updateBoss(dt);
     updateJames(dt);
+    checkSecretArea();
     updateCollectibles(dt);
     updateParticles(dt);
     updateCamera();
@@ -1158,7 +1165,8 @@ function updatePlayer(dt) {
     tryAttachLedgeGrab();
   }
 
-  player.x = clamp(player.x, 12, level.worldWidth - player.w - 12);
+  const _ww = state.secretAreaUnlocked ? LEVEL2_SECRET_WORLD_WIDTH : level.worldWidth;
+  player.x = clamp(player.x, 12, _ww - player.w - 12);
   if (player.y > HEIGHT + 240) hurtPlayer(true);
   finishPlayerFrame(dt);
 }
@@ -1691,6 +1699,15 @@ function dropHeart() {
   collectibles.push(makeCollectible("heart", boss.x + boss.w / 2 - 15, GROUND_Y - 72));
 }
 
+function checkSecretArea() {
+  if (state.levelIndex !== 1) return;
+  if (!boss.defeated || state.secretAreaUnlocked) return;
+  if (player.x > james.x + james.w + 10) {
+    state.secretAreaUnlocked = true;
+    flashMessage("A hidden path opens ahead!");
+  }
+}
+
 function updateJames(dt) {
   james.animTime += dt;
   if (!boss.defeated || james.rescued) return;
@@ -1750,7 +1767,8 @@ function updateParticles(dt) {
 
 function updateCamera() {
   const target = player.x + player.w / 2 - WIDTH * 0.42;
-  camera.x += (clamp(target, 0, level.worldWidth - WIDTH) - camera.x) * 0.12;
+  const ww = state.secretAreaUnlocked ? LEVEL2_SECRET_WORLD_WIDTH : level.worldWidth;
+  camera.x += (clamp(target, 0, ww - WIDTH) - camera.x) * 0.12;
 }
 
 function isStomp(attacker, target) {
