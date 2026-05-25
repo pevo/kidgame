@@ -68,6 +68,8 @@ const assets = {
   monsterboy: "assets/sprites/monsterboy.png",
   ogrebaby: "assets/sprites/ogrebaby.png",
   ogreboss: "assets/sprites/ogreboss.png",
+  stellabat: "assets/sprites/stellabat.png",
+  oreotoBoss: "assets/sprites/oreotoboss.png",
   coin: "assets/sprites/coin.png",
   heartBlackSun: "assets/sprites/heartblacksun.png",
 };
@@ -377,6 +379,95 @@ sprites.ogreboss = {
 };
 sprites.ogreboss.run = sprites.ogreboss.walk;
 
+sprites.stellabat = {
+  sheet: "stellabat",
+  // roost: hanging upside-down idle loop (5 frames)
+  roost: [
+    { x: 32, y: 136, w: 122, h: 167 },
+    { x: 170, y: 136, w: 140, h: 165 },
+    { x: 329, y: 136, w: 125, h: 164 },
+    { x: 468, y: 136, w: 153, h: 165 },
+    { x: 643, y: 135, w: 155, h: 168 },
+  ],
+  // wake: triggered when hero enters range — row1 tail (2) + row2 left (4)
+  wake: [
+    { x: 821, y: 135, w: 158, h: 170 },
+    { x: 999, y: 135, w: 159, h: 171 },
+    { x: 20, y: 385, w: 141, h: 166 },
+    { x: 179, y: 385, w: 267, h: 167 },
+    { x: 452, y: 385, w: 122, h: 166 },
+    { x: 581, y: 385, w: 126, h: 166 },
+  ],
+  // takeoff: transition from hanging to flight
+  takeoff: [
+    { x: 752, y: 388, w: 231, h: 134 },
+    { x: 986, y: 405, w: 504, h: 125 },
+  ],
+  // attack: dive with open mouth and fangs
+  attack: [
+    { x: 29, y: 586, w: 263, h: 178 },
+    { x: 310, y: 632, w: 257, h: 135 },
+    { x: 590, y: 632, w: 214, h: 135 },
+    { x: 826, y: 618, w: 220, h: 151 },
+    { x: 1067, y: 605, w: 245, h: 167 },
+    { x: 1347, y: 633, w: 171, h: 142 },
+  ],
+  // fly: horizontal chase loop
+  fly: [
+    { x: 37, y: 870, w: 167, h: 95 },
+    { x: 234, y: 864, w: 162, h: 105 },
+    { x: 435, y: 870, w: 152, h: 95 },
+  ],
+  hurt: [
+    { x: 599, y: 893, w: 141, h: 75 },
+  ],
+  defeated: [
+    { x: 822, y: 859, w: 148, h: 128 },
+    { x: 1035, y: 856, w: 197, h: 126 },
+    { x: 1264, y: 893, w: 219, h: 92 },
+  ],
+};
+
+sprites.oreotoBoss = {
+  sheet: "oreotoBoss",
+  // idle: 5 frames; frames 2-4 derived from equal-column split (swords overlap)
+  idle: [
+    { x: 17, y: 78, w: 232, h: 167 },
+    { x: 261, y: 100, w: 239, h: 147 },
+    { x: 521, y: 92, w: 295, h: 159 },
+    { x: 816, y: 103, w: 295, h: 154 },
+    { x: 1111, y: 106, w: 297, h: 154 },
+  ],
+  walk: [
+    { x: 33, y: 278, w: 206, h: 158 },
+    { x: 246, y: 297, w: 213, h: 142 },
+    { x: 464, y: 299, w: 216, h: 142 },
+    { x: 696, y: 300, w: 217, h: 144 },
+    { x: 924, y: 300, w: 222, h: 144 },
+    { x: 1159, y: 305, w: 232, h: 141 },
+  ],
+  // attack: sword-spin; frames 0-1 are full-circle radius (~484px wide)
+  attack: [
+    { x: 19, y: 497, w: 483, h: 138 },
+    { x: 503, y: 499, w: 484, h: 138 },
+    { x: 989, y: 500, w: 233, h: 138 },
+    { x: 1230, y: 504, w: 229, h: 138 },
+  ],
+  hurt: [
+    { x: 29, y: 669, w: 211, h: 129 },
+    { x: 252, y: 671, w: 424, h: 136 },
+    { x: 696, y: 674, w: 217, h: 129 },
+  ],
+  defeated: [
+    { x: 33, y: 825, w: 192, h: 152 },
+    { x: 263, y: 871, w: 158, h: 104 },
+    { x: 453, y: 891, w: 186, h: 82 },
+    { x: 665, y: 916, w: 182, h: 62 },
+    { x: 898, y: 942, w: 164, h: 36 },
+  ],
+};
+sprites.oreotoBoss.run = sprites.oreotoBoss.walk;
+
 sprites.coin = {
   sheet: "coin",
   spin: [
@@ -598,6 +689,44 @@ const levels = [
     boss: { type: "ogreboss", x: 5000, minX: 4860, maxX: 5300, hp: 4 },
     jamesX: 5430,
     flags: { boss: 4840, james: 5390 },
+  },
+  {
+    name: "Dusk Cliffs",
+    worldWidth: 5420,
+    hasPits: true,
+    platforms: [
+      { x: 0,    y: GROUND_Y, w: 760,  h: 80 },
+      { x: 940,  y: GROUND_Y, w: 900,  h: 80 },
+      { x: 2020, y: GROUND_Y, w: 980,  h: 80 },
+      { x: 3180, y: GROUND_Y, w: 2240, h: 80 },
+    ],
+    checkpoints: [
+      { x: 400,  label: "Careful! Gaps in the cliffs are deadly." },
+      { x: 1980, label: "Stellabats roost above — get close and they dive." },
+      { x: 3220, label: "The Cookie Boss needs five hits. Its swords spin wide!" },
+    ],
+    enemies: [
+      { type: "chomper",   x: 380,  y: GROUND_Y - CHOMPER_FEET_OFFSET, minX: 100,  maxX: 720  },
+      { type: "stellabat", x: 840,  ceilY: 0 },
+      { type: "chomper",   x: 1200, y: GROUND_Y - CHOMPER_FEET_OFFSET, minX: 940,  maxX: 1800 },
+      { type: "stellabat", x: 1460, ceilY: 0 },
+      { type: "chomper",   x: 2300, y: GROUND_Y - CHOMPER_FEET_OFFSET, minX: 2020, maxX: 2960 },
+      { type: "stellabat", x: 3080, ceilY: 0 },
+      { type: "chomper",   x: 3620, y: GROUND_Y - CHOMPER_FEET_OFFSET, minX: 3180, maxX: 3960 },
+    ],
+    collectibles: [
+      { type: "coin",    x: 200,  y: 428 },
+      { type: "heart",   x: 1020, y: 428 },
+      { type: "coin",    x: 1560, y: 428 },
+      { type: "blackSun",x: 2180, y: 428 },
+      { type: "coin",    x: 2680, y: 428 },
+      { type: "coin",    x: 2900, y: 428 },
+      { type: "heart",   x: 3380, y: 428 },
+      { type: "coin",    x: 4020, y: 428 },
+    ],
+    boss: { type: "oreotoBoss", x: 4580, minX: 4200, maxX: 5100, hp: 5 },
+    jamesX: 5280,
+    flags: { boss: 4050, james: 5240 },
   },
 ];
 
@@ -823,6 +952,7 @@ function startLevel(levelIndex, character = state.selected, health = 3, attackUn
     ledgeGrab: null,
     climbing: false,
     climbTimer: 0,
+    lastGroundX: 90,
   };
   enemies = level.enemies.flatMap((enemy) => makeEnemyWave(enemy, state.monsterMultiplier));
   state.runnerHintTimer = 0;
@@ -863,6 +993,15 @@ function startLevel(levelIndex, character = state.selected, health = 3, attackUn
 }
 
 function getBossStats(type = "boss") {
+  if (type === "oreotoBoss") {
+    return {
+      w: 80,
+      h: 110,
+      hp: 5,
+      attackCooldown: 5,
+      groundOffset: 0,
+    };
+  }
   if (type === "ogreboss") {
     return {
       w: 102,
@@ -897,6 +1036,7 @@ function makeEnemyCopy(enemy, index, total) {
     ? enemy.x
     : minX + ((maxX - minX) * (index + 1)) / (total + 1);
 
+  if (enemy.type === "stellabat") return makeStellabat(enemy.x, enemy.ceilY || 0);
   if (enemy.type === "ogreBaby") return makeOgreBaby(x, enemy.y, minX, maxX);
   if (enemy.type === "monsterboy") return makeMonsterboy(x, enemy.y, minX, maxX);
   return makeChomper(x, enemy.y, minX, maxX);
@@ -1012,6 +1152,29 @@ function makeOgreBaby(x, y, minX, maxX) {
     maxX,
     facing: -1,
     attackCooldown: random(5.5, 8.5),
+    attackTimer: 0,
+    attackHasHit: false,
+    defeated: false,
+    hurtTimer: 0,
+    animTime: 0,
+  };
+}
+
+function makeStellabat(x, ceilY) {
+  return {
+    type: "stellabat",
+    x,
+    y: ceilY,
+    anchorX: x,
+    ceilY,
+    w: 52,
+    h: 60,
+    vx: 0,
+    vy: 0,
+    facing: -1,
+    behavior: "roost",
+    behaviorTimer: 0,
+    attackCooldown: 0,
     attackTimer: 0,
     attackHasHit: false,
     defeated: false,
@@ -1167,7 +1330,11 @@ function updatePlayer(dt) {
 
   const _ww = state.secretAreaUnlocked ? LEVEL2_SECRET_WORLD_WIDTH : level.worldWidth;
   player.x = clamp(player.x, 12, _ww - player.w - 12);
-  if (player.y > HEIGHT + 240) hurtPlayer(true);
+  if (level.hasPits && player.y + player.h > GROUND_Y + 60) {
+    fallIntoPit();
+  } else if (player.y > HEIGHT + 240) {
+    hurtPlayer(true);
+  }
   finishPlayerFrame(dt);
 }
 
@@ -1196,6 +1363,7 @@ function finishPlayerFrame(dt) {
   if (player.invincible > 0) player.invincible -= dt;
   if (player.attackCooldown > 0) player.attackCooldown -= dt;
   player.animTime += dt;
+  if (player.grounded) player.lastGroundX = player.x + player.w / 2;
 
   for (const marker of level.checkpoints) {
     if (Math.abs(player.x - marker.x) < 20) {
@@ -1417,6 +1585,8 @@ function updateEnemies(dt) {
       updateOgreBaby(enemy, dt);
     } else if (enemy.type === "monsterboy") {
       updateMonsterboy(enemy, dt);
+    } else if (enemy.type === "stellabat") {
+      updateStellabat(enemy, dt);
     } else {
       updateChomper(enemy, dt);
     }
@@ -1557,6 +1727,85 @@ function updateOgreBaby(enemy, dt) {
   tryClubSwing(enemy, 64, 48, 0.4, 0.12);
 }
 
+function updateStellabat(enemy, dt) {
+  if (enemy.hurtTimer > 0) enemy.hurtTimer -= dt;
+  if (enemy.attackCooldown > 0) enemy.attackCooldown -= dt;
+
+  const playerCX = player.x + player.w / 2;
+  const enemyCX = enemy.x + enemy.w / 2;
+  const distX = Math.abs(playerCX - enemyCX);
+  const distY = Math.abs((player.y + player.h / 2) - (enemy.y + enemy.h / 2));
+
+  if (enemy.behavior === "roost") {
+    enemy.vx = 0;
+    enemy.vy = 0;
+    enemy.x = enemy.anchorX;
+    enemy.y = enemy.ceilY;
+    if (distX < 300) {
+      enemy.behavior = "wake";
+      enemy.behaviorTimer = 0;
+    }
+    return;
+  }
+
+  if (enemy.behavior === "wake") {
+    enemy.behaviorTimer += dt;
+    if (enemy.behaviorTimer >= 0.75) enemy.behavior = "fly";
+    return;
+  }
+
+  if (enemy.behavior === "fly") {
+    const targetX = player.x + player.w / 2 - enemy.w / 2;
+    const targetY = player.y + player.h / 2 - enemy.h / 2;
+    const dx = targetX - enemy.x;
+    const dy = targetY - enemy.y;
+    const speed = 160;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    enemy.vx = (dx / dist) * speed;
+    enemy.vy = (dy / dist) * speed;
+    enemy.x += enemy.vx * dt;
+    enemy.y += enemy.vy * dt;
+    enemy.facing = dx < 0 ? -1 : 1;
+
+    if (distX < 55 && distY < 80 && enemy.attackCooldown <= 0) {
+      enemy.behavior = "attack";
+      enemy.behaviorTimer = 0;
+      enemy.attackCooldown = 2.5;
+      enemy.attackHasHit = false;
+    }
+    if (distX > 600) enemy.behavior = "return";
+    return;
+  }
+
+  if (enemy.behavior === "attack") {
+    enemy.behaviorTimer += dt;
+    if (enemy.behaviorTimer > 0.2 && enemy.behaviorTimer < 0.5 && !enemy.attackHasHit) {
+      if (intersects(player, { x: enemy.x, y: enemy.y, w: enemy.w, h: enemy.h + 20 })) {
+        enemy.attackHasHit = true;
+        hurtPlayer();
+      }
+    }
+    if (enemy.behaviorTimer >= 0.75) enemy.behavior = "fly";
+    return;
+  }
+
+  if (enemy.behavior === "return") {
+    const dx = enemy.anchorX - enemy.x;
+    const dy = enemy.ceilY - enemy.y;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    if (dist < 10) {
+      enemy.behavior = "roost";
+      enemy.x = enemy.anchorX;
+      enemy.y = enemy.ceilY;
+      enemy.vx = 0;
+      enemy.vy = 0;
+    } else {
+      enemy.x += (dx / dist) * 140 * dt;
+      enemy.y += (dy / dist) * 140 * dt;
+    }
+  }
+}
+
 function tryClubSwing(attacker, reachX, reachY, hitStart, hitEnd) {
   if (attacker.attackTimer <= 0 || attacker.attackHasHit) return;
   if (attacker.attackTimer < hitEnd || attacker.attackTimer > hitStart) return;
@@ -1573,6 +1822,20 @@ function getClubHitBox(attacker, reachX, reachY) {
     w: reachX,
     h: reachY,
   };
+}
+
+function trySpinAttack(attacker, reachX, reachY, hitStart, hitEnd) {
+  if (attacker.attackTimer <= 0 || attacker.attackHasHit) return;
+  if (attacker.attackTimer < hitEnd || attacker.attackTimer > hitStart) return;
+  const spinBox = {
+    x: attacker.x - reachX,
+    y: attacker.y + attacker.h * 0.15,
+    w: attacker.w + reachX * 2,
+    h: reachY,
+  };
+  if (!intersects(player, spinBox)) return;
+  attacker.attackHasHit = true;
+  hurtPlayer();
 }
 
 function fireMonsterboyProjectile(enemy, direction) {
@@ -1624,6 +1887,20 @@ function updateBoss(dt) {
     tryClubSwing(boss, 106, 70, 0.5, 0.14);
   }
 
+  if (boss.type === "oreotoBoss") {
+    if (boss.attackTimer > 0) boss.attackTimer -= dt;
+    if (boss.attackCooldown > 0) boss.attackCooldown -= dt;
+    if (boss.attackCooldown <= 0) {
+      boss.attackCooldown = 5;
+      boss.attackTimer = 0.80;
+      boss.attackHasHit = false;
+      if (boss.x - camera.x < WIDTH && boss.x + boss.w - camera.x > 0) {
+        playSound("swing");
+      }
+    }
+    trySpinAttack(boss, 100, 80, 0.60, 0.14);
+  }
+
   boss.jumpTimer -= dt;
   const onGround = boss.y + boss.h >= GROUND_Y - 2;
   if (boss.jumpTimer <= 0 && onGround) {
@@ -1645,7 +1922,7 @@ function updateBoss(dt) {
 
   if (intersects(player, boss)) {
     if (isStomp(player, boss)) {
-      const extraHeight = boss.type !== "ogreboss" ? growBoss() : 0;
+      const extraHeight = (boss.type !== "ogreboss" && boss.type !== "oreotoBoss") ? growBoss() : 0;
       damageBoss();
       player.y = Math.min(player.y, boss.y - player.h - 2);
       player.vy = -Math.sqrt(BOSS_STOMP_BOUNCE_SPEED ** 2 + 2 * GRAVITY * Math.max(extraHeight, 0));
@@ -1676,7 +1953,7 @@ function damageBoss() {
     spawnBossDefeatBurst();
     boss.defeated = true;
     boss.vx = 0;
-    boss.y = boss.type === "ogreboss" ? GROUND_Y - boss.h : GROUND_Y - 52;
+    boss.y = (boss.type === "ogreboss" || boss.type === "oreotoBoss") ? GROUND_Y - boss.h : GROUND_Y - 52;
     dropHeart();
   } else {
     playSound("bossHurt");
@@ -1808,8 +2085,8 @@ function defeatEnemy(enemy, source = "stomp") {
     player.vy = -440;
     playSound("stomp");
   }
-  const burstColor = enemy.type === "ghostBoy" ? "#c084fc" : enemy.type === "monsterboy" ? "#22c55e" : enemy.type === "ogreBaby" ? "#fb923c" : "#e5e7eb";
-  const enemyName = enemy.type === "ghostBoy" ? "Ghost Boy" : enemy.type === "monsterboy" ? "Monsterboy" : enemy.type === "ogreBaby" ? "Ogre Baby" : "Chomper";
+  const burstColor = enemy.type === "ghostBoy" ? "#c084fc" : enemy.type === "monsterboy" ? "#22c55e" : enemy.type === "ogreBaby" ? "#fb923c" : enemy.type === "stellabat" ? "#818cf8" : "#e5e7eb";
+  const enemyName = enemy.type === "ghostBoy" ? "Ghost Boy" : enemy.type === "monsterboy" ? "Monsterboy" : enemy.type === "ogreBaby" ? "Ogre Baby" : enemy.type === "stellabat" ? "Stellabat" : "Chomper";
   spawnBurst(enemy.x + enemy.w / 2, enemy.y + 10, burstColor);
   flashMessage(`${enemyName} defeated!`);
 }
@@ -1829,6 +2106,36 @@ function hurtPlayer(fell = false) {
   if (player.health <= 0 || fell) {
     state.mode = "lost";
   }
+}
+
+function getPitRespawnX() {
+  const cx = player.lastGroundX;
+  let best = null;
+  for (const plat of level.platforms) {
+    if (plat.x + plat.w <= cx + 20) {
+      if (!best || plat.x + plat.w > best.x + best.w) best = plat;
+    }
+  }
+  if (best) return clamp(cx - 60, best.x + 20, best.x + best.w - player.w - 20);
+  return 90;
+}
+
+function fallIntoPit() {
+  if (player.invincible > 0) return;
+  releaseLedgeGrab();
+  loseSun();
+  player.health -= 1;
+  playSound("hurt");
+  player.invincible = 1.8;
+  const respawnX = getPitRespawnX();
+  player.x = respawnX;
+  player.y = GROUND_Y - player.h;
+  player.vx = 0;
+  player.vy = 0;
+  player.grounded = true;
+  spawnBurst(player.x + player.w / 2, player.y + 24, "#fb7185");
+  flashMessage(player.health > 0 ? "Fell into a pit! Watch the gaps." : "Try again?");
+  if (player.health <= 0) state.mode = "lost";
 }
 
 function loseSun() {
@@ -2029,7 +2336,12 @@ function drawTouchOverlay() {
 
 function drawSky() {
   const gradient = ctx.createLinearGradient(0, 0, 0, HEIGHT);
-  if (state.levelIndex === 3) {
+  if (state.levelIndex === 4) {
+    gradient.addColorStop(0, "#04040e");
+    gradient.addColorStop(0.28, "#0d0b2a");
+    gradient.addColorStop(0.65, "#1a1040");
+    gradient.addColorStop(1, "#251530");
+  } else if (state.levelIndex === 3) {
     gradient.addColorStop(0, "#2a1608");
     gradient.addColorStop(0.4, "#6b4322");
     gradient.addColorStop(0.78, "#a87544");
@@ -2050,7 +2362,10 @@ function drawSky() {
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-  if (state.levelIndex === 3) return;
+  if (state.levelIndex === 3 || state.levelIndex === 4) {
+    if (state.levelIndex === 4) drawDuskStars();
+    return;
+  }
 
   ctx.fillStyle = state.levelIndex === 1 ? "rgba(226, 232, 240, 0.28)" : state.levelIndex === 2 ? "rgba(240, 253, 244, 0.66)" : "rgba(255,255,255,0.85)";
   drawCloud(140, 80);
@@ -2066,6 +2381,35 @@ function drawCloud(x, y) {
   ctx.fill();
 }
 
+const DUSK_STARS = [
+  [74, 28], [182, 14], [294, 42], [418, 18], [536, 36], [650, 10], [762, 30], [874, 20], [938, 44],
+  [38, 66], [148, 78], [266, 56], [380, 88], [500, 62], [608, 82], [720, 50], [836, 72], [950, 58],
+  [92, 108], [220, 96], [348, 120], [460, 100], [580, 114], [690, 92], [800, 118], [910, 94],
+  [56, 148], [170, 134], [310, 156], [430, 140], [560, 160], [670, 138], [790, 150], [900, 132],
+];
+
+function drawDuskStars() {
+  // Crescent moon
+  ctx.fillStyle = "rgba(220, 210, 255, 0.88)";
+  ctx.beginPath();
+  ctx.arc(820, 58, 22, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#0d0b2a";
+  ctx.beginPath();
+  ctx.arc(830, 52, 18, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Stars
+  for (const [x, y] of DUSK_STARS) {
+    const r = (x * 7 + y * 13) % 3 === 0 ? 1.8 : 1.2;
+    const a = 0.55 + ((x * 3 + y * 5) % 10) * 0.04;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = "#e0d8ff";
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  ctx.globalAlpha = 1;
+}
+
 function drawBackgroundDetails() {
   if (state.levelIndex === 1) {
     drawDeadTree(720, GROUND_Y, 1.08);
@@ -2078,6 +2422,8 @@ function drawBackgroundDetails() {
     drawForestTree(4320, GROUND_Y, 1.08);
   } else if (state.levelIndex === 3) {
     drawCaveSpikes();
+  } else if (state.levelIndex === 4) {
+    drawDuskCliffs();
   }
 }
 
@@ -2235,11 +2581,35 @@ function drawDeadTree(x, groundY, scale) {
   ctx.restore();
 }
 
+function drawDuskCliffs() {
+  ctx.fillStyle = "#0b0920";
+  // Background ridge silhouettes (jagged cliff shapes)
+  const ridges = [
+    [0, 380], [180, 310], [260, 340], [380, 280], [500, 320], [620, 270], [740, 300],
+    [860, 260], [980, 295], [1100, 270], [1260, 300], [1440, 260], [1600, 290], [1800, 250],
+    [1960, 280], [2100, 265], [2300, 285], [2460, 255], [2640, 280], [2800, 265],
+    [3000, 285], [3200, 270], [3400, 290], [3600, 265], [3800, 280], [4000, 270],
+    [4200, 285], [4400, 260], [4600, 278], [4800, 268], [5000, 282], [5200, 265],
+    [5420, 280],
+  ];
+  ctx.beginPath();
+  ctx.moveTo(ridges[0][0], ridges[0][1]);
+  for (let i = 1; i < ridges.length; i++) {
+    const [px, py] = ridges[i - 1];
+    const [cx, cy] = ridges[i];
+    ctx.quadraticCurveTo(px + (cx - px) * 0.5, py - 18, cx, cy);
+  }
+  ctx.lineTo(5420, GROUND_Y);
+  ctx.lineTo(0, GROUND_Y);
+  ctx.closePath();
+  ctx.fill();
+}
+
 function drawPlatforms() {
   for (const platform of level.platforms) {
-    ctx.fillStyle = state.levelIndex === 3 ? "#7a4a22" : state.levelIndex === 2 ? "#5f3b1f" : "#7c4a2d";
+    ctx.fillStyle = state.levelIndex === 4 ? "#1e2442" : state.levelIndex === 3 ? "#7a4a22" : state.levelIndex === 2 ? "#5f3b1f" : "#7c4a2d";
     ctx.fillRect(platform.x, platform.y, platform.w, platform.h);
-    ctx.fillStyle = state.levelIndex === 3 ? "#c89464" : state.levelIndex === 2 ? "#16a34a" : "#22c55e";
+    ctx.fillStyle = state.levelIndex === 4 ? "#6272c0" : state.levelIndex === 3 ? "#c89464" : state.levelIndex === 2 ? "#16a34a" : "#22c55e";
     ctx.fillRect(platform.x, platform.y, platform.w, Math.min(12, platform.h));
     ctx.fillStyle = "rgba(0,0,0,0.16)";
     for (let x = platform.x + 12; x < platform.x + platform.w; x += 46) {
@@ -2376,6 +2746,26 @@ function drawEnemies() {
         enemy.y - 24,
         enemy.w + 58,
         enemy.h + 28,
+        enemy.facing,
+      );
+      continue;
+    }
+
+    if (enemy.type === "stellabat") {
+      const animation = enemy.defeated ? "defeated"
+        : enemy.hurtTimer > 0 ? "hurt"
+        : enemy.behavior === "attack" ? "attack"
+        : enemy.behavior === "fly" || enemy.behavior === "return" ? "fly"
+        : enemy.behavior === "wake" ? "wake"
+        : "roost";
+      drawEntity(
+        enemy,
+        "stellabat",
+        animation,
+        enemy.x - 60,
+        enemy.y - 10,
+        enemy.w + 120,
+        enemy.h + 20,
         enemy.facing,
       );
       continue;
@@ -2580,6 +2970,13 @@ function drawBoss() {
     return;
   }
 
+  if (boss.type === "oreotoBoss") {
+    const animation = boss.defeated ? "defeated" : boss.hurtTimer > 0 ? "hurt" : boss.attackTimer > 0 ? "attack" : "walk";
+    const padX = boss.attackTimer > 0 ? 110 : 36;
+    drawEntity(boss, "oreotoBoss", animation, boss.x - padX, boss.y - 30, boss.w + padX * 2, boss.h + 30, boss.vx < 0 ? 1 : -1);
+    return;
+  }
+
   const animation = boss.defeated ? "defeated" : boss.hurtTimer > 0 ? "hurt" : "walk";
   const drawY = boss.defeated ? boss.y - 30 : boss.y - 5;
   const drawH = boss.defeated ? boss.h - 10 : boss.h + 12;
@@ -2589,7 +2986,8 @@ function drawBoss() {
 function drawEntity(entity, spriteName, animation, x, y, w, h, facing = 1) {
   const sprite = sprites[spriteName];
   const frames = sprite[animation] || sprite.idle || sprite.walk;
-  const frame = frames[Math.floor(entity.animTime * 8) % frames.length];
+  const frameIdx = Math.floor(entity.animTime * 8);
+  const frame = frames[animation === "defeated" ? Math.min(frameIdx, frames.length - 1) : frameIdx % frames.length];
   const image = images[sprite.sheet];
   const scale = Math.min(w / frame.w, h / frame.h);
   const drawW = Math.round(frame.w * scale);
@@ -2634,9 +3032,9 @@ function drawHud() {
   ctx.fillStyle = "rgba(248, 250, 252, 0.58)";
   ctx.font = canvasFont(700, 12);
   ctx.fillText(`High: ${state.highScore}`, 214, 60);
-  ctx.fillStyle = "#f8fafc";
+  ctx.fillStyle = "#fda4af";
   ctx.font = canvasFont(700, 18);
-  ctx.fillText(`Health: ${"I ".repeat(Math.max(player?.health || 0, 0)).trim()}`, 34, 78);
+  ctx.fillText(`Health: ${"♥ ".repeat(Math.max(player?.health || 0, 0)).trim() || "-"}`, 34, 78);
   if (player?.attackUnlocked) {
     ctx.fillStyle = "#c4b5fd";
     ctx.fillText(`CTRL attack x${player.sunCount}`, 34, 100);
